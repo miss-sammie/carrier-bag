@@ -21,8 +21,8 @@ function initControls() {
 }
 
 class Slot {
-    constructor(buffer) {
-        this.buffer = Buffer.buffers[buffer];
+    constructor(bufferNumber) {
+        this.buffer = Buffer.buffers[bufferNumber];
         this.focus = false;
         this.active = false;    
     }
@@ -65,6 +65,7 @@ function focus(slotNumber) {
 }
 
 function switchFile(operation) {
+    
     if (operation === 'next') {
     } else if (operation === 'previous') {
     } else if (operation === 'random') {

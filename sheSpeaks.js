@@ -4,6 +4,7 @@ let nextText = ''
 let pause = 4000
 let pausing = false
 let noVowel = false
+let vowelCount = 0
 let consonantCount = 0
 let noConsonant = false
 let caps = false
@@ -111,7 +112,11 @@ function randomLetter(operator) {
     const vowels = 'OEEAEEAOAEOIEUIOIIAAIOAIOEIAOOUIUEEAAEIEUE'
     const consonants = "TZDQHWDNTTSGBRMNLDTRVDSSRLFYRFPWRLLGCNPCJXRHKYNGTTNMNSVB";
     if(operator === 'vowel' && noVowel === false) {
-        noVowel = true
+        vowelCount += 1
+        if(vowelCount > 3){
+            noVowel = true
+            vowelCount = 0
+        }
         return vowels[Math.floor(Math.random() * vowels.length)];
     } else if (operator === 'consonant' && noConsonant === false) {
         consonantCount += 1
