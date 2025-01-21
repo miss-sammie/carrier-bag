@@ -8,6 +8,25 @@ class Buffer {
         this.element = null;
     }
 
+    static buffers = [];
+    
+    static initBuffers(visualCount, audioCount) {
+        // Clear existing buffers
+        Buffer.buffers = [];
+        
+        // Initialize visual buffers
+        for (let i = 0; i < visualCount; i++) {
+            Buffer.buffers.push(new Buffer('visual', i));
+        }
+        
+        // Initialize audio buffers
+        for (let i = visualCount; i < visualCount + audioCount; i++) {
+            Buffer.buffers.push(new Buffer('audio', i));
+        }
+        
+        return Buffer.buffers;
+    }
+
     loadMedia(url) {
         // First remove any existing element from the DOM
         if (this.element && this.element.parentNode) {
@@ -31,6 +50,7 @@ class Buffer {
                 this.element = document.createElement('img');
                 this.element.src = url;
                 this.filetype = 'image';
+                console.log("Loaded image:", url);
                 break;
             case 'video':
                 this.element = document.createElement('video');
@@ -38,6 +58,8 @@ class Buffer {
                 // Optional: add common video attributes
                 //this.element.controls = true;
                 this.filetype = 'video';
+                this.element.autoplay = true;
+                this.element.loop = true;
                 break;
             case 'audio':
                 this.element = new Audio(url);
@@ -101,25 +123,26 @@ class Buffer {
 
 }
 
-const buffers = [];
+// const buffers = [];
     
-function initBuffers(visualCount, audioCount) {
-    // Clear existing buffers
-    buffers = [];
+// function initBuffers(visualCount, audioCount) {
+//     // Clear existing buffers
+//     buffers = [];
     
-    // Initialize visual buffers (can handle both images and videos)
-    for (let i = 0; i < visualCount; i++) {
-        buffers.push(new Buffer('visual', null, i));
-    }
+//     // Initialize visual buffers (can handle both images and videos)
+//     for (let i = 0; i < visualCount; i++) {
+//         buffers.push(new Buffer('visual', null, i));
+//     }
     
-    // Initialize audio buffers
-    for (let i = visualCount; i < visualCount + audioCount; i++) {
-        buffers.push(new Buffer('audio', null, i));
-    }
+//     // Initialize audio buffers
+//     for (let i = visualCount; i < visualCount + audioCount; i++) {
+//         buffers.push(new Buffer('audio', null, i));
+//     }
     
-    return buffers;
-}
+//     return buffers;
+// }
 
+const media = []
 async function load_library(jsonFilePath) {
     try {
         const response = await fetch(jsonFilePath);
@@ -130,38 +153,19 @@ async function load_library(jsonFilePath) {
 
         jsonData.forEach(path => {
             const formattedPath = path.replace(/\\/g, '/');
-            const extension = formattedPath.split('.').pop().toLowerCase();
             
             const mediaObj = {
                 url: formattedPath,
-                type: getMediaType(extension)
+                type: getMediaType(formattedPath)
             };
 
             media.push(mediaObj);
-            
-            switch(mediaObj.type) {
-                case 'image':
-                    images.push(formattedPath);
-                    break;
-                case 'video':
-                    videos.push(formattedPath);
-                    break;
-                case 'audio':
-                    audio.push(formattedPath);
-                    break;
-                case 'shape':
-                    shapes.push(formattedPath);
-                    break;
-            }
         });
 
-        console.log("Library loaded:", {
-            total: media.length,
-            images: images.length,
-            videos: videos.length,
-            audio: audio.length,
-            shapes: shapes.length
-        });
+        // console.log("Library loaded:", {
+        //     total: media.length,
+        //     types: [...new Set(media.map(m => m.type))] // Shows unique types loaded
+        // })
 
     } catch (error) {
         console.error("Failed to load library:", error);
@@ -204,7 +208,7 @@ function getMediaType(url) {
     return 'unknown';
   } 
 
-
+  export { Buffer, load_library, getMediaType, media };
   
 
 
