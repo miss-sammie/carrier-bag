@@ -1,22 +1,41 @@
 console.log("Starting periphone.js");
 
-
 import { frequencyToLetter } from './sheSpeaks.js'
+import { Buffer } from './buffers.js';
+import { loadLibrary, mediaLibrary, getCollection, createCollection  } from './media.js';
 
-import { Buffer, load_library, getMediaType, media } from './buffers.js';
 
 console.log("Imports completed");
 
 // Initialize buffers
 Buffer.initBuffers(4, 0);
 console.log("Buffers initialized");
+window.Buffer = Buffer
+
+
+let hydra, hydraCanvas;
+hydraCanvas = document.createElement("canvas");
+hydraCanvas.id = "hydraCanvas";
+hydraCanvas.className = "hydraCanvas";  
+document.body.appendChild(hydraCanvas); // Add this line to append the canvas
+
+hydra = new Hydra({
+    canvas: hydraCanvas,
+    detectAudio: true,
+    enableStreamCapture: false,
+    width: window.innerWidth,
+    height: window.innerHeight,
+});
+
 
 console.log("About to load library...");
-await load_library('library/library-default_lib.json')
+await loadLibrary('library/library-water.json')
     .then(() => {
-        console.log("Library loaded:", media);
-        Buffer.buffers[0].loadMedia(media.filter(m => m.type === 'video')[1].url)   
-        Buffer.buffers[1].loadMedia(media.filter(m => m.type === 'video')[2].url)   
+        console.log("Library loaded:", mediaLibrary);
+        Buffer.buffers[0].setCollection('Videos')  
+        s0.initCam() 
+       // Buffer.buffers[1].loadMedia(videos[4].url)   
+
     })
     .catch(error => {
         console.error("Error in main:", error);
@@ -27,26 +46,6 @@ await load_library('library/library-default_lib.json')
 
 
 
-let hydra, hydraCanvas;
-hydraCanvas = document.createElement("canvas");
-// hydraCanvas.width = 480;
-//  hydraCanvas.height = 480;
-
-
-
-
-hydraCanvas.id = "hydraCanvas";
-hydraCanvas.className = "hydraCanvas";  
-document.body.appendChild(hydraCanvas); // Add this line to append the canvas
-
-
-hydra = new Hydra({
-    canvas: hydraCanvas,
-    detectAudio: true,
-    enableStreamCapture: false,
-    width: window.innerWidth,
-    height: window.innerHeight,
-});
 
 // Wait a bit for audio to initialize
 setTimeout(() => {
@@ -64,14 +63,19 @@ setTimeout(() => {
 const imgTest = Buffer.buffers[0].element
 const imgTest2 = Buffer.buffers[1].element  
 
-s0.initCam()
-s1.init({src: imgTest})
+//s0.initCam()
 s2.init({src: imgTest2})
 
-src(s0)
+function reloadPatch() {
+    s1.init({src: Buffer.buffers[0].element})
+    src(s0)
     .blend(s1)
-    .modulate(s2)
+   // .modulate(s2)
   //  .modulateRotate(voronoi(12,() => a.fft[6]*12) )
     .out() 
-    
 
+}
+
+reloadPatch()
+
+export { reloadPatch }

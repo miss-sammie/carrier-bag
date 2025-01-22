@@ -1,15 +1,22 @@
+import { MediaObject, mediaLibrary, getCollection } from './media.js';
+import { reloadPatch } from './periphone.js';
+import { Controls, Controller } from './controls.js';
+
 class Buffer {
     constructor(type, slot) {
         this.type = type;
         this.filetype = null // 'visual' or 'audio'
         this.url = null;
         this.active = false;
+        this.focus = false;
         this.slot = slot;
         this.element = null;
+        this.currentCollection = null;  // Add this
+        this.currentIndex = -1;         // Add this to track position in collection
     }
 
     static buffers = [];
-    
+
     static initBuffers(visualCount, audioCount) {
         // Clear existing buffers
         Buffer.buffers = [];
@@ -26,6 +33,38 @@ class Buffer {
         
         return Buffer.buffers;
     }
+    
+    setCollection(collectionName) {
+        const collection = getCollection(collectionName);
+        if (!collection) {
+            throw new Error(`Collection "${collectionName}" not found`);
+        }
+        
+        // Filter collection based on buffer type
+        const validMedia = collection.getAll().filter(item => {
+            if (this.type === 'visual') {
+                return ['image', 'video'].includes(item.type);
+            } else if (this.type === 'audio') {
+                return item.type === 'audio';
+            }
+            return false;
+        });
+
+        if (validMedia.length === 0) {
+            throw new Error(`No compatible media in collection "${collectionName}"`);
+        }
+
+        this.currentCollection = validMedia;
+        this.currentIndex = 0;
+        console.log(`Buffer ${this.slot} set to collection "${collectionName}" with ${validMedia.length} items`);
+        
+        // Load the first item
+        return this.loadMedia(this.currentCollection[0].url);
+    }
+
+    switchFile(direction = 'next') {
+        return Controls.switchFile(this, direction);
+    }
 
     loadMedia(url) {
         // First remove any existing element from the DOM
@@ -33,32 +72,37 @@ class Buffer {
             this.element.parentNode.removeChild(this.element);
         }
 
-        this.url = url;
-        const mediaType = getMediaType(url);
+        const mediaObj = mediaLibrary.find(m => m.url === url);
+        if (!mediaObj) {
+            throw new Error(`Media not found in library: ${url}`);
+        }
 
         // Validate media type against buffer type
-        if (this.type === 'audio' && mediaType !== 'audio') {
-            throw new Error(`Cannot load ${mediaType} into audio buffer (slot ${this.slot})`);
+        if (this.type === 'audio' && mediaObj.type !== 'audio') {
+            throw new Error(`Cannot load ${mediaObj.type} into audio buffer (slot ${this.slot})`);
         }
-        if (this.type === 'visual' && !['image', 'video'].includes(mediaType)) {
-            throw new Error(`Cannot load ${mediaType} into visual buffer (slot ${this.slot})`);
+        if (this.type === 'visual' && !['image', 'video'].includes(mediaObj.type)) {
+            throw new Error(`Cannot load ${mediaObj.type} into visual buffer (slot ${this.slot})`);
         }
 
         // Create new element based on media type
-        switch (mediaType) {
+        switch (mediaObj.type) {
             case 'image':
                 this.element = document.createElement('img');
+                this.url = url
                 this.element.src = url;
                 this.filetype = 'image';
                 console.log("Loaded image:", url);
                 break;
             case 'video':
                 this.element = document.createElement('video');
+                this.url = url
                 this.element.src = url;
                 // Optional: add common video attributes
                 //this.element.controls = true;
                 this.filetype = 'video';
                 this.element.autoplay = true;
+                this.element.muted = true;
                 this.element.loop = true;
                 break;
             case 'audio':
@@ -71,7 +115,13 @@ class Buffer {
                 throw new Error(`Unsupported media type: ${mediaType}`);
         }
 
-        this.active = true;
+        if (this.type === 'visual') {
+            document.body.appendChild(this.element)
+            if(this.filetype === 'video') {
+                this.element.play()
+            }
+        }
+        this.active = true
         return this.element;
     }
 
@@ -89,126 +139,38 @@ class Buffer {
 
     timeShift(operation) {
         if (this.filetype === 'audio' || this.filetype === 'video') {
-            if (operation === 'forward') {
-                this.element.currentTime += 10;
-            } else if (operation === 'backward') {
-                this.element.currentTime -= 10;
-            } else if (operation === 'reset') {
-                this.element.currentTime = 0;
-            } else if(operation === 'random') {
-                this.element.currentTime = Math.random() * this.element.duration;
-            } else {
-                console.warn(`Invalid time shift operation: ${operation}`);
-            }
-        } else {
-            console.warn(`Cannot time shift ${this.filetype} buffer`);
-        }   
+            Controls.timeShift(this.element, operation);
+        }
     }
 
     speedShift(operation) {
-        const currentSpeed = this.element.playbackRate;
-        const speeds = [0.5, 1, 2, 4];
         if (this.filetype === 'audio' || this.filetype === 'video') {
-            if (operation === 'faster') {
-                this.element.playbackRate = speeds[speeds.indexOf(currentSpeed) + 1];
-            } else if (operation === 'slower') {
-                this.element.playbackRate = speeds[speeds.indexOf(currentSpeed) - 1];
-            } else {
-                console.warn(`Invalid speed shift operation: ${operation}`);
-            }
-        } else {
-            console.warn(`Cannot speed shift ${this.filetype} buffer`);
+            Controls.speedShift(this.element, operation);
         }
-    }   
+    }
+
+    togglePlay() {
+        if (this.filetype === 'audio' || this.filetype === 'video') {
+            Controls.togglePlay(this.element);
+        }
+    }
+
+    toggleMute() {
+        if (this.filetype === 'audio' || this.filetype === 'video') {
+            Controls.toggleMute(this.element);
+        }
+    }
+
+    clearCollection() {
+        this.currentCollection = null;
+        this.currentIndex = -1;
+    }
 
 }
 
-// const buffers = [];
-    
-// function initBuffers(visualCount, audioCount) {
-//     // Clear existing buffers
-//     buffers = [];
-    
-//     // Initialize visual buffers (can handle both images and videos)
-//     for (let i = 0; i < visualCount; i++) {
-//         buffers.push(new Buffer('visual', null, i));
-//     }
-    
-//     // Initialize audio buffers
-//     for (let i = visualCount; i < visualCount + audioCount; i++) {
-//         buffers.push(new Buffer('audio', null, i));
-//     }
-    
-//     return buffers;
-// }
-
-const media = []
-async function load_library(jsonFilePath) {
-    try {
-        const response = await fetch(jsonFilePath);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const jsonData = await response.json();
-
-        jsonData.forEach(path => {
-            const formattedPath = path.replace(/\\/g, '/');
-            
-            const mediaObj = {
-                url: formattedPath,
-                type: getMediaType(formattedPath)
-            };
-
-            media.push(mediaObj);
-        });
-
-        // console.log("Library loaded:", {
-        //     total: media.length,
-        //     types: [...new Set(media.map(m => m.type))] // Shows unique types loaded
-        // })
-
-    } catch (error) {
-        console.error("Failed to load library:", error);
-    }
-  }
 
 
-function getMediaType(url) {
-    // Early return if no URL
-    if (!url) {
-        console.warn('No URL provided to getMediaType');
-        return 'unknown';
-    }
-
-    // Get extension from URL
-    const extension = url.split('.').pop().toLowerCase();
-    
-    // console.log('Checking media type for:', {
-    //     url,
-    //     extension
-    // });
-
-    // Define valid extensions
-    const mediaTypes = {
-        image: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-        video: ['mp4', 'webm', 'mov', 'avi'],
-        audio: ['mp3', 'wav', 'ogg', 'aac'],
-        shape: ['glb', 'gltf', 'obj']
-    };
-
-    // Check extension against types
-    for (const [type, extensions] of Object.entries(mediaTypes)) {
-        if (extensions.includes(extension)) {
-            //console.log(`Found media type: ${type} for extension: ${extension}`);
-            return type;
-        }
-    }
-
-    console.warn(`Unknown extension: ${extension} for URL: ${url}`);
-    return 'unknown';
-  } 
-
-  export { Buffer, load_library, getMediaType, media };
+  export { Buffer };
   
 
 
