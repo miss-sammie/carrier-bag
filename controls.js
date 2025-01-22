@@ -1,46 +1,84 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch } from './periphone.js';
+import { MediaObject, mediaLibrary, getCollection } from './media.js';
 
 
 class Controls {
     static timeOperations = ['forward', 'backward', 'reset', 'random'];
     static speedOperations = ['faster', 'slower', 'normal'];
-    static speeds = [0.5, 1, 2, 4];
+    static speeds = [0.25,0.5, 1, 2, 4];
     static switchOperations = ['next', 'prev', 'random'];
 
+    static keyMapping = {
+        'Digit1': () => Controls.focus(0),
+        'Digit2': () => Controls.focus(1),
+        'Digit3': () => Controls.focus(2),
+        'Digit4': () => Controls.focus(3),
+        'KeyQ': () => Controls.switchFile('next'),
+        'KeyW': () => Controls.switchFile('previous'),
+        'KeyE': () => Controls.switchFile('random'),
+    
+    };
+    
+    static init() {
+        Object.entries(this.keyMapping).forEach(([key, handler]) => {
+            document.addEventListener('keyup', (event) => {
+                if (event.code === key) {
+                    handler();
+                }
+            });
+        });
+        console.log('Controls initialized');
+    }
+
     static switchFile(buffer, direction = 'next') {
-        if (!buffer.currentCollection) {
-            throw new Error('No collection set for this buffer');
+        const focusedBuffer = Buffer.buffers.find(b => b.focus);
+        if (!focusedBuffer) {
+            console.warn('No buffer focused');
+            return;
+        }
+
+        console.log(`Switching file for buffer ${focusedBuffer.slot}, current collection:`, focusedBuffer.currentCollection);
+
+        if (!focusedBuffer.currentCollection) {
+            console.error('No collection set for this buffer');
+            return;
         }
     
-        const length = buffer.currentCollection.length;
+        const length = focusedBuffer.currentCollection.length;
         
         if (direction === 'next') {
-            buffer.currentIndex = (buffer.currentIndex + 1) % length;
+            focusedBuffer.currentIndex = (focusedBuffer.currentIndex + 1) % length;
         } else if (direction === 'prev') {
-            buffer.currentIndex = (buffer.currentIndex - 1 + length) % length;
+            focusedBuffer.currentIndex = (focusedBuffer.currentIndex - 1 + length) % length;
         } else if (direction === 'random') {
-            buffer.currentIndex = Math.floor(Math.random() * length);
+            focusedBuffer.currentIndex = Math.floor(Math.random() * length);
         }
     
-        const mediaObj = buffer.currentCollection[buffer.currentIndex];
-        console.log(`Buffer ${buffer.slot} switching to ${mediaObj.title} (${buffer.currentIndex + 1}/${length})`);
+        const mediaObj = focusedBuffer.currentCollection[focusedBuffer.currentIndex];
+        console.log(`Buffer ${focusedBuffer.slot} switching to ${mediaObj.title} (${focusedBuffer.currentIndex + 1}/${length})`);
         
         // Load the new media
-        const element = buffer.loadMedia(mediaObj.url);
+        const element = focusedBuffer.loadMedia(mediaObj.url);
         
         // Ensure video plays if it's a video
-        if (buffer.filetype === 'video' && buffer.element) {
+        if (focusedBuffer.filetype === 'video' && focusedBuffer.element) {
             try {
-                buffer.element.play().catch(e => {
-                    console.log(`Auto-play handled for buffer ${buffer.slot} during switch`);
+                focusedBuffer.element.play().catch(e => {
+                    console.log(`Auto-play handled for buffer ${focusedBuffer.slot} during switch`);
                 });
             } catch (e) {
-                console.log(`Play failed for buffer ${buffer.slot} during switch`);
+                console.log(`Play failed for buffer ${focusedBuffer.slot} during switch`);
             }
         }
-        reloadPatch()
+
+        // Reload patch if needed
+        if (typeof reloadPatch === 'function') {
+            reloadPatch();
+        }
+    
         return element;
+    
     }
 
 
@@ -117,63 +155,32 @@ class Controls {
 
         element.muted = !element.muted;
     }
-}
 
-class Controller {
-    constructor(keycode, control) {
-        this.keycode = keycode;
-        this.control = control;
-    }
-}
-
-function initControls() {
-    keyMapping.forEach((key, control) => {
-        new Controller(key, control);
-        window.addEventListener('keyup', (event) => {
-            if (event.key === key) {
-                this.control();
+    static focus(buffer) {
+        Buffer.buffers.forEach(b => {
+            if (b.focus) {
+                b.focus = false;
             }
-        }); 
-    });
-}
+        });
+        Buffer.buffers[buffer].focus = true;
+    }
 
-
-
-const keyMapping = {
-    'Digit1': () => focus(Buffer.buffers[0]),
-    'Digit2': () => focus(Buffer.buffers[1]),
-    'Digit3': () => focus(Buffer.buffers[2]),
-    'Digit4': () => focus(Buffer.buffers[3]),
-    'KeyQ': () => switchFile('next'),
-    'KeyW': () => switchFile('previous'),
-    'KeyE': () => switchFile('random'),
-
-};
-
-function focus(buffer) {
-    Buffer.buffers.forEach(buffer  => {
-        if (Buffer.buffers[buffer].focus) {
-            Buffer.buffers[buffer].focus = false;
-        }
-    });
-    Buffer.buffers[buffer].focus = true;
-}
-
-function switchFile(operation) {
-    Buffer.buffers.forEach(buffer => {
-        if (Buffer.buffers[buffer].focus) {
-            const activeBuffer = Buffer.buffers[buffer];
-        }
-    });
-    if (operation === 'next') {
-        activeBuffer.switchFile('next');
-    } else if (operation === 'previous') {
-        activeBuffer.switchFile('previous');
-    } else if (operation === 'random') {
-        activeBuffer.switchFile('random');
+    static init() {
+        Object.entries(this.keyMapping).forEach(([key, handler]) => {
+            document.addEventListener('keyup', (event) => {
+                if (event.code === key) {
+                    handler();
+                }
+            });
+        });
+        console.log('Controls initialized');
     }
 }
 
 
 
-export { Controls, Controller };
+
+
+
+
+export { Controls };
