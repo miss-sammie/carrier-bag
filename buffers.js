@@ -1,6 +1,6 @@
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 import { reloadPatch } from './periphone.js';
-import { Controls, Controller } from './controls.js';
+import { Controls } from './controls.js';
 
 class Buffer {
     constructor(type, slot) {

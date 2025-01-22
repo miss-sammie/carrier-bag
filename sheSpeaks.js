@@ -98,14 +98,6 @@ function postText(text) {
 // Call loadLexicon when the script starts
 loadLexicon();
 
-// function postText(text) {
-//     pausing = false
-//     console.error(text)
-//     letterCount = 0
-//     nextText = ''  
-//     sendCount = Math.floor(Math.random() * 13) + 1
-//     pause = Math.floor(Math.random() * 5000) + 299
-// }
 
 function randomLetter(operator) {
     const letters = 'TBTRROOHEHYSODDIMBINEOPAIDFRRDSAEIASEEUNVXRTJOLVRTAOLAAIOZCIANGUTFNEQEYAUPCGLLOKAEENWEEIIIWESGUTNM';
@@ -199,26 +191,9 @@ function frequencyToLetter(fftData) {
         }
         
         
-        
-        //     if (letterCount === sendCount && !pausing) {
-        //         pausing = true
-        //         setTimeout(() => postText(nextText), pause);
-        //     } else if (letterCount < sendCount && !pausing) {
-        //         if(index === 0) {           
-        //             nextText += randomLetter()
-        //         } else if (index === 1) {
-        //             nextText += randomLetter('vowel')   
-        //         } else if (index === 2)     {
-        //             nextText += randomLetter('consonant')
-        //         } else if (index === 3) {
-        //             nextText += ' '
-        //         }
-        //         letterCount += 1
-        //     } else if (pausing) {
-        //         return
-        //     }
-        // }
-    });
+    
+    })
+    
 }
 
 // Export the functions we need in other files

@@ -2,8 +2,8 @@ console.log("Starting periphone.js");
 
 import { frequencyToLetter } from './sheSpeaks.js'
 import { Buffer } from './buffers.js';
+import { Controls } from './controls.js';
 import { loadLibrary, mediaLibrary, getCollection, createCollection  } from './media.js';
-
 
 console.log("Imports completed");
 
@@ -11,7 +11,7 @@ console.log("Imports completed");
 Buffer.initBuffers(4, 0);
 console.log("Buffers initialized");
 window.Buffer = Buffer
-
+window.Controls = Controls
 
 let hydra, hydraCanvas;
 hydraCanvas = document.createElement("canvas");
@@ -33,6 +33,7 @@ await loadLibrary('library/library-water.json')
     .then(() => {
         console.log("Library loaded:", mediaLibrary);
         Buffer.buffers[0].setCollection('Videos')  
+        Controls.init()
         s0.initCam() 
        // Buffer.buffers[1].loadMedia(videos[4].url)   
 
