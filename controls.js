@@ -8,6 +8,10 @@ class Controls {
     static speedOperations = ['faster', 'slower', 'normal'];
     static speeds = [0.25,0.5, 1, 2, 4];
     static switchOperations = ['next', 'prev', 'random'];
+    static midiAccess = null;
+    static midiInputs = [];
+    static midiEnabled = false;
+
 
     static keyMapping = {
         'Digit1': () => Controls.focus(0),
@@ -19,6 +23,16 @@ class Controls {
         'KeyE': () => Controls.switchFile('random'),
     
     };
+
+    static midiMapping = {
+        60: () => Controls.focus(0), // C4
+        61: () => Controls.focus(1), // C#4
+        62: () => Controls.focus(2), // D4
+        63: () => Controls.focus(3), // D#4
+        64: () => Controls.switchFile('next'), // E4
+        65: () => Controls.switchFile('prev'), // F4
+        66: () => Controls.switchFile('random') // F#4
+    };
     
     static init() {
         Object.entries(this.keyMapping).forEach(([key, handler]) => {
@@ -29,6 +43,63 @@ class Controls {
             });
         });
         console.log('Controls initialized');
+    }
+
+    static initializeMIDI() {
+        console.log('Attempting MIDI initialization...');
+        if (navigator.requestMIDIAccess) {
+            console.log('Browser supports MIDI access');
+            navigator.requestMIDIAccess()
+                .then((access) => {
+                    console.log('MIDI Access granted:', access);
+                    this.onMIDISuccess(access);
+                })
+                .catch((error) => {
+                    console.error('MIDI Access failed:', error);
+                    this.onMIDIFailure(error);
+                });
+        } else {
+            console.warn('Web MIDI API not supported in this browser.');
+        }
+    }
+
+    static testMIDIInput() {
+        if (!this.midiEnabled) {
+            console.warn('MIDI is not enabled');
+            return;
+        }
+    
+        console.log('Current MIDI state:', {
+            access: this.midiAccess,
+            inputs: Array.from(this.midiAccess.inputs.values()),
+            enabled: this.midiEnabled
+        });
+    }
+
+    
+    static onMIDISuccess = (midiAccess) => {
+        console.log('MIDI access granted');
+        const inputs = Array.from(midiAccess.inputs.values());
+        console.log('Available MIDI inputs:', inputs);
+        
+        inputs.forEach(input => {
+            console.log(`Setting up MIDI input: ${input.name}`);
+            input.onmidimessage = this.handleMIDIMessage;
+        });
+    }
+
+    static onMIDIFailure() {
+        console.warn('Failed to access MIDI devices.');
+    }
+
+    static handleMIDIMessage(message) {
+        const [status, note, velocity] = message.data;
+        if (status === 144 && velocity > 0) { // Note on
+            const handler = Controls.midiMapping[note];
+            if (handler) {
+                handler();
+            }
+        }
     }
 
     static switchFile(buffer, direction = 'next') {
@@ -163,6 +234,7 @@ class Controls {
             }
         });
         Buffer.buffers[buffer].focus = true;
+        console.log(`Focused buffer ${buffer}`);
     }
 
     static init() {

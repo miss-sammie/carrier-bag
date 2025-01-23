@@ -116,7 +116,7 @@ class Buffer {
         }
 
         if (this.type === 'visual') {
-            document.body.appendChild(this.element)
+           // document.body.appendChild(this.element)
             if(this.filetype === 'video') {
                 this.element.play()
             }
