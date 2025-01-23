@@ -12,7 +12,7 @@ class MediaObject {
         const extension = url.split('.').pop().toLowerCase();
         const mediaTypes = {
             image: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-            video: ['mp4', 'webm', 'mov', 'avi'],
+            video: ['mp4', 'mov'],
             audio: ['mp3', 'wav', 'ogg', 'aac'],
             shape: ['glb', 'gltf', 'obj']
         };

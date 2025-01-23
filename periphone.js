@@ -33,7 +33,9 @@ await loadLibrary('library/library-water.json')
     .then(() => {
         console.log("Library loaded:", mediaLibrary);
         Buffer.buffers[0].setCollection('Videos')  
+        Buffer.buffers[1].setCollection('Images')
         Controls.init()
+        Controls.initializeMIDI()
         s0.initCam() 
        // Buffer.buffers[1].loadMedia(videos[4].url)   
 
@@ -61,17 +63,17 @@ setTimeout(() => {
     update();
 }, 2000); // Wait 1 second for initialization
 
-const imgTest = Buffer.buffers[0].element
-const imgTest2 = Buffer.buffers[1].element  
+
 
 //s0.initCam()
-s2.init({src: imgTest2})
 
 function reloadPatch() {
     s1.init({src: Buffer.buffers[0].element})
-    src(s0)
-    .blend(s1)
-   // .modulate(s2)
+    s2.init({src: Buffer.buffers[1].element})
+
+    src(s1)
+    .modulate(s0)
+    .blend(s2)
   //  .modulateRotate(voronoi(12,() => a.fft[6]*12) )
     .out() 
 

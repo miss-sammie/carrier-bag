@@ -69,7 +69,33 @@ class Buffer {
     loadMedia(url) {
         // First remove any existing element from the DOM
         if (this.element && this.element.parentNode) {
+            Controls.log(`Cleaning up existing element in slot ${this.slot}`);
+        // Remove all event listeners
+        this.element.onloadeddata = null;
+        this.element.onerror = null;
+        this.element.onended = null;
+        this.element.onplay = null;
+        this.element.onpause = null;
+
+        // Stop any ongoing playback
+        if (!this.element.paused) {
+            this.element.pause();
+        }
+
+        // Reset source and clear source buffers
+        this.element.removeAttribute('src');
+        this.element.load(); // This triggers cleanup of media resources
+
+        // Remove the element from DOM if it's there
+        if (this.element.parentNode) {
+            Controls.log(`Removing element from DOM in slot ${this.slot}`);
             this.element.parentNode.removeChild(this.element);
+        }
+
+        // Clear the reference
+        this.element = null;
+        Controls.log(`Cleanup complete for slot ${this.slot}`);
+    
         }
 
         const mediaObj = mediaLibrary.find(m => m.url === url);
@@ -104,6 +130,8 @@ class Buffer {
                 this.element.autoplay = true;
                 this.element.muted = true;
                 this.element.loop = true;
+                
+                this.element.play()
                 break;
             case 'audio':
                 this.element = new Audio(url);
@@ -115,12 +143,12 @@ class Buffer {
                 throw new Error(`Unsupported media type: ${mediaType}`);
         }
 
-        if (this.type === 'visual') {
-           // document.body.appendChild(this.element)
-            if(this.filetype === 'video') {
-                this.element.play()
-            }
-        }
+        // if (this.type === 'visual') {
+        //    // document.body.appendChild(this.element)
+        //     if(this.filetype === 'video') {
+        //         this.element.play()
+        //     }
+        // }
         this.active = true
         return this.element;
     }
