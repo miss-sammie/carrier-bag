@@ -78,6 +78,14 @@ export class UIComponent {
         return document.createElement('div');
     }
 
+    afterMount() {
+        // Override in child classes for post-mount operations
+    }
+
+    update() {
+        // Override in child classes
+        // Called when component needs to update its state
+    }
 }
 
 // Example Buffer Status Component
