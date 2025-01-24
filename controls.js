@@ -156,148 +156,45 @@ class Controls {
         }
     }
 
-    static async switchFile(direction = 'next') {
-        
-        if (this.switchInProgress) {
-            this.log('Switch already in progress, ignoring request');
+    static switchFile(direction = 'next') {
+        const focusedBuffer = Buffer.buffers.find(b => b.focus);
+        if (!focusedBuffer) {
+            this.warn('No buffer focused');
             return;
         }
-
-        const now = Date.now();
-        if ((now - this.lastSwitchTime) < this.SWITCH_COOLDOWN) {
-            this.log(`Cooldown active, waiting ${this.SWITCH_COOLDOWN}ms between switches`);
+    
+        if (!focusedBuffer.currentCollection) {
+            this.error('No collection set for this buffer');
             return;
         }
-
-        this.log(`Starting switch file: ${direction}, last switch was ${now - this.lastSwitchTime}ms ago`);
-        this.switchInProgress = true;
-        this.lastSwitchTime = now;
-
-        try {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (!focusedBuffer) {
-                this.warn('No buffer focused');
-                return;
-            }
-
-            if (!focusedBuffer.currentCollection) {
-                this.error('No collection set for this buffer');
-                return;
-            }
-
-            const length = focusedBuffer.currentCollection.length;
-            let newIndex;
-
-            if (focusedBuffer.element) {
-                const oldElement = focusedBuffer.element;
-                // Remove from Hydra's sources based on slot
-                switch(focusedBuffer.slot) {
-                    case 0:
-                        this.log('Clearing s1');
-                        s1.clear();
-                        break;
-                    case 1:
-                        this.log('Clearing s2');
-                        s2.clear();
-                        break;
-                    case 2:
-                        this.log('Clearing s3');
-                        s3.clear();
-                        break;
-                    case 3:
-                        this.log('Clearing s4');
-                        s4.clear();
-                        break;
-                }
-                
-                // Clear the element
-
-                if (oldElement instanceof HTMLMediaElement) {
-                    // For video and audio elements
-                    oldElement.pause();
-                    oldElement.src = '';
-                    oldElement.load();
-                } else if (oldElement instanceof HTMLImageElement) {
-                    // For image elements
-                    oldElement.src = '';
-                }
-            }
-
-            switch(direction) {
-                case 'next':
-                    newIndex = (focusedBuffer.currentIndex + 1) % length;
-                    break;
-                case 'prev':
-                    newIndex = (focusedBuffer.currentIndex - 1 + length) % length;
-                    break;
-                case 'random':
-                    do {
-                        newIndex = Math.floor(Math.random() * length);
-                    } while (length > 1 && newIndex === focusedBuffer.currentIndex);
-                    break;
-            }
-
-            focusedBuffer.currentIndex = newIndex;
-            const mediaObj = focusedBuffer.currentCollection[focusedBuffer.currentIndex];
-            this.log(`Attempting to load: ${mediaObj.url}`);
-
-            // Load the new media with promise-based error handling
-            const element = await new Promise((resolve, reject) => {
-                const el = focusedBuffer.loadMedia(mediaObj.url);
-                
-                if (!el) {
-                    reject(new Error('No element returned from loadMedia'));
-                    return;
-                }
-
-                if (focusedBuffer.filetype === 'video') {
-                    this.log(`Setting up video listeners for ${mediaObj.url}`);
-                    let loadTimeout = setTimeout(() => {
-                        this.log(`Load timeout for ${mediaObj.url}`);
-                        reject(new Error('Video load timeout'));
-                    }, 5000);
-
-                    el.preload = 'metadata';  // Only load metadata initially
-                    el.playsInline = true;    // Optimize for in-browser playback
-                    
-                    el.addEventListener('loadeddata', () => {
-                        clearTimeout(loadTimeout);
-                        this.log(`Video loaded successfully: ${mediaObj.url}`);
-                        resolve(el);
-                    }, { once: true });
-
-                    el.addEventListener('error', (e) => {
-                        clearTimeout(loadTimeout);
-                        this.error(`Video load error for ${mediaObj.url}:`, e.target?.error);
-                        reject(new Error(`Failed to load video: ${mediaObj.url}`));
-                    }, { once: true });
-                } else {
-                    resolve(el);
-                }
-            });
-
-            // Handle successful media load
-            if (focusedBuffer.filetype === 'video' && element) {
-                try {
-                    await element.play();
-                    this.log(`Video playing: ${mediaObj.url}`);
-                } catch (e) {
-                    this.warn(`Auto-play failed: ${mediaObj.url}`, e);
-                }
-            }
-
-            // Delay reload patch slightly to ensure media is ready
-            setTimeout(() => reloadPatch(), 200);
-            return element;
-
-        } catch (error) {
-            this.error(`Failed to load media:`, error);
-        } finally {
-            this.log('Switch complete, resetting flags');
-            this.switchInProgress = false;
+    
+        const length = focusedBuffer.currentCollection.length;
+        let newIndex;
+    
+        switch(direction) {
+            case 'next':
+                newIndex = (focusedBuffer.currentIndex + 1) % length;
+                break;
+            case 'prev':
+                newIndex = (focusedBuffer.currentIndex - 1 + length) % length;
+                break;
+            case 'random':
+                do {
+                    newIndex = Math.floor(Math.random() * length);
+                } while (length > 1 && newIndex === focusedBuffer.currentIndex);
+                break;
         }
+    
+        focusedBuffer.currentIndex = newIndex;
+        const mediaObj = focusedBuffer.currentCollection[focusedBuffer.currentIndex];
+        const element = focusedBuffer.loadMedia(mediaObj.url);
+    
+        // Delay reload patch slightly to ensure media is ready
+        setTimeout(() => reloadPatch(), 200);
+        return element;
     }
 
+    
     static timeShift(operation) {
         const focusedBuffer = Buffer.buffers.find(b => b.focus);
         if (!focusedBuffer || !focusedBuffer.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {

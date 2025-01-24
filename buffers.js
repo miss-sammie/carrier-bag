@@ -67,89 +67,46 @@ class Buffer {
     }
 
     loadMedia(url) {
-        // First remove any existing element from the DOM
+        // Remove any existing element
         if (this.element && this.element.parentNode) {
-            Controls.log(`Cleaning up existing element in slot ${this.slot}`);
-        // Remove all event listeners
-        this.element.onloadeddata = null;
-        this.element.onerror = null;
-        this.element.onended = null;
-        this.element.onplay = null;
-        this.element.onpause = null;
-
-        // Stop any ongoing playback
-        if (!this.element.paused) {
-            this.element.pause();
-        }
-
-        // Reset source and clear source buffers
-        this.element.removeAttribute('src');
-        this.element.load(); // This triggers cleanup of media resources
-
-        // Remove the element from DOM if it's there
-        if (this.element.parentNode) {
-            Controls.log(`Removing element from DOM in slot ${this.slot}`);
             this.element.parentNode.removeChild(this.element);
         }
-
-        // Clear the reference
         this.element = null;
-        Controls.log(`Cleanup complete for slot ${this.slot}`);
     
-        }
-
+        // Create new element based on media type
         const mediaObj = mediaLibrary.find(m => m.url === url);
         if (!mediaObj) {
             throw new Error(`Media not found in library: ${url}`);
         }
-
-        // Validate media type against buffer type
-        if (this.type === 'audio' && mediaObj.type !== 'audio') {
-            throw new Error(`Cannot load ${mediaObj.type} into audio buffer (slot ${this.slot})`);
-        }
-        if (this.type === 'visual' && !['image', 'video'].includes(mediaObj.type)) {
-            throw new Error(`Cannot load ${mediaObj.type} into visual buffer (slot ${this.slot})`);
-        }
-
-        // Create new element based on media type
+    
+        // Create appropriate element
         switch (mediaObj.type) {
             case 'image':
                 this.element = document.createElement('img');
-                this.url = url
                 this.element.src = url;
                 this.filetype = 'image';
-                console.log("Loaded image:", url);
                 break;
+    
             case 'video':
                 this.element = document.createElement('video');
-                this.url = url
                 this.element.src = url;
-                // Optional: add common video attributes
-                //this.element.controls = true;
-                this.filetype = 'video';
-                this.element.autoplay = true;
-                this.element.muted = true;
                 this.element.loop = true;
-                
+                this.element.muted = true;
+                this.element.autoplay = true;
+                this.filetype = 'video';
                 this.element.play()
                 break;
+    
             case 'audio':
-                this.element = new Audio(url);
-                // Optional: add common audio attributes
-                //this.element.controls = true;
+                this.element = document.createElement('audio');
+                this.element.src = url;
                 this.filetype = 'audio';
                 break;
+    
             default:
-                throw new Error(`Unsupported media type: ${mediaType}`);
+                throw new Error(`Unsupported media type: ${mediaObj.type}`);
         }
-
-        // if (this.type === 'visual') {
-        //    // document.body.appendChild(this.element)
-        //     if(this.filetype === 'video') {
-        //         this.element.play()
-        //     }
-        // }
-        this.active = true
+    
         return this.element;
     }
 
