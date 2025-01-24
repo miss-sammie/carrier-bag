@@ -1,6 +1,8 @@
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 import { reloadPatch } from './hydra.js';
 import { Controls } from './controls.js';
+import { UIGrid, BufferStatusComponent } from './interface.js';
+
 
 class Buffer {
     constructor(type, slot) {
@@ -66,47 +68,74 @@ class Buffer {
         return Controls.switchFile(this, direction);
     }
 
-    loadMedia(url) {
-        // Remove any existing element
-        if (this.element && this.element.parentNode) {
-            this.element.parentNode.removeChild(this.element);
-        }
-        this.element = null;
-    
+    async loadMedia(url) {
         // Create new element based on media type
         const mediaObj = mediaLibrary.find(m => m.url === url);
         if (!mediaObj) {
             throw new Error(`Media not found in library: ${url}`);
         }
-    
+
         // Create appropriate element
+        let newElement;
         switch (mediaObj.type) {
             case 'image':
-                this.element = document.createElement('img');
-                this.element.src = url;
+                newElement = document.createElement('img');
+                newElement.src = url;
                 this.filetype = 'image';
                 break;
-    
+
             case 'video':
-                this.element = document.createElement('video');
-                this.element.src = url;
-                this.element.loop = true;
-                this.element.muted = true;
-                this.element.autoplay = true;
+                newElement = document.createElement('video');
+                newElement.src = url;
+                newElement.loop = true;
+                newElement.muted = true;
+                newElement.autoplay = true;
+                newElement.controls = true;
+                newElement.play()
                 this.filetype = 'video';
-                this.element.play()
                 break;
-    
+
             case 'audio':
-                this.element = document.createElement('audio');
-                this.element.src = url;
+                newElement = document.createElement('audio');
+                newElement.src = url;
                 this.filetype = 'audio';
                 break;
-    
+
             default:
                 throw new Error(`Unsupported media type: ${mediaObj.type}`);
         }
-    
+
+        // Wait for the new element to be ready
+        await new Promise((resolve, reject) => {
+            if (mediaObj.type === 'image') {
+                newElement.onload = resolve;
+                newElement.onerror = reject;
+            } else {
+                newElement.onloadeddata = resolve;
+                newElement.onerror = reject;
+            }
+        });
+
+        // Remove any existing element
+        if (this.element && this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+
+        this.element = newElement;
+
+        // Add event listeners for dynamic updates
+        if (this.element) {
+            this.element.addEventListener('ratechange', () => {
+                this.updateUI();
+            });
+            this.element.addEventListener('focus', () => {
+                this.updateUI();
+            });
+            this.element.addEventListener('blur', () => {
+                this.updateUI();
+            });
+        }
+
         return this.element;
     }
 
@@ -124,7 +153,7 @@ class Buffer {
 
     timeShift(operation) {
         if (this.filetype === 'audio' || this.filetype === 'video') {
-            Controls.timeShift(this.element, operation);
+            Controls.timeShift(operation);
         }
     }
 
@@ -151,11 +180,15 @@ class Buffer {
         this.currentIndex = -1;
     }
 
+    updateUI() {
+        const component = window.ui.components.get(`${this.slot}-0`); // Use the global UIGrid instance
+        if (component) {
+            component.update();
+        }
+    }
 }
 
-
-
-  export { Buffer };
+export { Buffer };
   
 
 

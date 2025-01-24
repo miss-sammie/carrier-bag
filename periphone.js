@@ -4,11 +4,13 @@ import { frequencyToLetter } from './sheSpeaks.js'
 import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
 import { loadLibrary, mediaLibrary, getCollection, createCollection  } from './media.js';
+import { UIGrid, BufferStatusComponent } from './interface.js';
+import stateManager from './stateManager.js';
 
 console.log("Imports completed");
 
 // Initialize buffers
-Buffer.initBuffers(4, 0);
+Buffer.initBuffers(2, 0);
 console.log("Buffers initialized");
 window.Buffer = Buffer
 window.Controls = Controls
@@ -44,6 +46,26 @@ setTimeout(() => {
     }
     update();
 }, 2000); // Wait 1 second for initialization
+
+// After your other initializations:
+const ui = new UIGrid();
+window.ui = ui; // Make the UIGrid instance globally accessible
+
+// Add buffer status components to the first row
+Buffer.buffers.forEach((buffer, index) => {
+    ui.addComponent(0, index, BufferStatusComponent, buffer);
+});
+
+// Function to update UI components
+function updateUI() {
+    ui.components.forEach(component => {
+        component.update();
+    });
+    requestAnimationFrame(updateUI);
+}
+
+// Start the UI update loop
+updateUI();
 
 
 

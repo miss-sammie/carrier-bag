@@ -190,8 +190,8 @@ class Controls {
         const element = focusedBuffer.loadMedia(mediaObj.url);
     
         // Delay reload patch slightly to ensure media is ready
-        //setTimeout(() => reloadActiveSource(), 200);
-        reloadActiveSource()
+        //setTimeout(() => requestAnimationFrame(reloadActiveSource), 500);
+       reloadActiveSource()
         return element;
     }
 
@@ -234,6 +234,14 @@ class Controls {
             default:
                 this.warn(`Invalid time shift operation: ${operation}`);
         }
+
+        // Make sure the element is playing after time shift
+        if (!element.paused) {
+            element.play();
+        }
+
+        // Reload Hydra source to reflect the changes
+        reloadActiveSource();
     }
 
     static speedShift(operation) {
@@ -267,6 +275,8 @@ class Controls {
             default:
                 this.warn(`Invalid speed shift operation: ${operation}`);
         }
+
+        reloadActiveSource();
     }
 
     static togglePlay(element) {
