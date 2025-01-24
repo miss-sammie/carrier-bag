@@ -1,5 +1,5 @@
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
-import { reloadPatch } from './periphone.js';
+import { reloadPatch } from './hydra.js';
 import { Controls } from './controls.js';
 
 class Buffer {

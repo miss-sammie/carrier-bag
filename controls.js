@@ -1,5 +1,5 @@
 import { Buffer } from './buffers.js';
-import { reloadPatch } from './periphone.js';
+import { reloadPatch, reloadActiveSource } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 
 
@@ -190,7 +190,8 @@ class Controls {
         const element = focusedBuffer.loadMedia(mediaObj.url);
     
         // Delay reload patch slightly to ensure media is ready
-        setTimeout(() => reloadPatch(), 200);
+        //setTimeout(() => reloadActiveSource(), 200);
+        reloadActiveSource()
         return element;
     }
 
