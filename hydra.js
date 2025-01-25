@@ -1,20 +1,51 @@
 // Initialize Hydra
+let resolutionMode = "high"  
+
 function initHydra() {
-    const hydraCanvas = document.createElement("canvas");
-    hydraCanvas.id = "hydraCanvas";
-    hydraCanvas.className = "hydraCanvas";
-    document.body.appendChild(hydraCanvas);
+    // Check for existing canvas
+    let hydraCanvas = document.getElementById("hydraCanvas");
+    
+    if (!hydraCanvas) {
+        hydraCanvas = document.createElement("canvas");
+        hydraCanvas.id = "hydraCanvas";
+        hydraCanvas.className = "hydraCanvas";
+        document.body.appendChild(hydraCanvas);
+    }
+
+    // Set canvas attributes explicitly
+    if (resolutionMode === "high") {
+        hydraCanvas.width = 1280;
+        hydraCanvas.height = 720;
+    } else if (resolutionMode === "low") {
+        hydraCanvas.width = 320;  // Or whatever "low" resolution you want
+        hydraCanvas.height = 180; // Maintaining 16:9 aspect ratio
+    }
 
     const hydra = new Hydra({
         canvas: hydraCanvas,
         detectAudio: true,
         enableStreamCapture: false,
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width: hydraCanvas.width,   // Match canvas resolution
+        height: hydraCanvas.height,  // Match canvas resolution
     });
 
     return hydra;
 }
+
+function resizeHydraPatch() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Resize Hydra canvas
+    if (hydraCanvas) {
+      hydraCanvas.width = width;
+      hydraCanvas.height = height;
+      hydra.setResolution(width, height);
+    }
+  }
+
+  // Initial resize
+
 
 // Reload just the active source
 function reloadActiveSource() {
@@ -43,4 +74,11 @@ function reloadPatch() {
         .out();
 }
 
-export { initHydra, reloadActiveSource, reloadPatch };
+// Add a function to toggle resolution
+function toggleResolution() {
+    resolutionMode = resolutionMode === "high" ? "low" : "high";
+    const hydra = initHydra();  // Reinitialize with new resolution
+    reloadPatch();  // Reload the patch to update sources
+}
+
+export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution };

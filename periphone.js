@@ -1,5 +1,5 @@
 console.log("Starting periphone.js");
-import { initHydra, reloadActiveSource, reloadPatch } from './hydra.js';
+import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './hydra.js';
 import { frequencyToLetter } from './sheSpeaks.js'
 import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
@@ -38,6 +38,7 @@ await loadLibrary('library/library-water.json')
         await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
         
         const hydra = initHydra()
+      //  resizeHydraPatch()
         reloadPatch()
     })
     .catch(error => {
@@ -60,8 +61,8 @@ setTimeout(() => {
 }, 2000); // Wait 1 second for initialization
 
 // After your other initializations:
-const ui = new UIGrid();
-window.ui = ui; // Make the UIGrid instance globally accessible
+// const ui = new UIGrid();
+// window.ui = ui; // Make the UIGrid instance globally accessible
 
 // Add buffer status components to the first row
 Buffer.buffers.forEach((buffer, index) => {
@@ -78,6 +79,8 @@ function updateUI() {
 
 // Start the UI update loop
 updateUI();
+
+
 
 
 
