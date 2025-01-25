@@ -18,15 +18,27 @@ window.Controls = Controls
 
 console.log("About to load library...");
 await loadLibrary('library/library-water.json')
-    .then(() => {
+    .then(async () => {
         console.log("Library loaded:", mediaLibrary);
+        
+        // First set up UI
+        const ui = new UIGrid();
+        window.ui = ui;
+        
+        // Then set collections
         Buffer.buffers[0].setCollection('Videos')  
         Buffer.buffers[1].setCollection('Images')
+        
+        // Initialize controls
         Controls.init()
         Controls.initializeMIDI()
-       // Buffer.buffers[1].loadMedia(videos[4].url)   
-       const hydra = initHydra()
-       reloadPatch()
+        
+        // Wait for media to load
+        await Buffer.buffers[0].loadMedia(Buffer.buffers[0].currentCollection.items[0].url);
+        await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
+        
+        const hydra = initHydra()
+        reloadPatch()
     })
     .catch(error => {
         console.error("Error in main:", error);

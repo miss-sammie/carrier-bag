@@ -41,27 +41,14 @@ class Buffer {
         if (!collection) {
             throw new Error(`Collection "${collectionName}" not found`);
         }
-        
-        // Filter collection based on buffer type
-        const validMedia = collection.getAll().filter(item => {
-            if (this.type === 'visual') {
-                return ['image', 'video'].includes(item.type);
-            } else if (this.type === 'audio') {
-                return item.type === 'audio';
-            }
-            return false;
-        });
 
-        if (validMedia.length === 0) {
-            throw new Error(`No compatible media in collection "${collectionName}"`);
-        }
-
-        this.currentCollection = validMedia;
+        this.currentCollection = collection;
         this.currentIndex = 0;
-        console.log(`Buffer ${this.slot} set to collection "${collectionName}" with ${validMedia.length} items`);
+
+        console.log(`Buffer ${this.slot} set to collection "${collectionName}"`);
         
         // Load the first item
-        return this.loadMedia(this.currentCollection[0].url);
+        return this.loadMedia(collection.getAll()[0].url);
     }
 
     switchFile(direction = 'next') {
@@ -70,7 +57,7 @@ class Buffer {
 
     async loadMedia(url) {
         // Create new element based on media type
-        const mediaObj = mediaLibrary.find(m => m.url === url);
+        const mediaObj = this.currentCollection.items.find(m => m.url === url);
         if (!mediaObj) {
             throw new Error(`Media not found in library: ${url}`);
         }
@@ -105,38 +92,31 @@ class Buffer {
                 throw new Error(`Unsupported media type: ${mediaObj.type}`);
         }
 
-        // Wait for the new element to be ready
-        await new Promise((resolve, reject) => {
-            if (mediaObj.type === 'image') {
-                newElement.onload = resolve;
-                newElement.onerror = reject;
-            } else {
-                newElement.onloadeddata = resolve;
-                newElement.onerror = reject;
+        try {
+            // Wait for the new element to be ready
+            await new Promise((resolve, reject) => {
+                if (mediaObj.type === 'image') {
+                    newElement.onload = resolve;
+                    newElement.onerror = reject;
+                } else {
+                    newElement.onloadeddata = resolve;
+                    newElement.onerror = reject;
+                }
+            });
+
+            // Only remove old element and update if new one loaded successfully
+            if (this.element && this.element.parentNode) {
+                this.element.parentNode.removeChild(this.element);
             }
-        });
 
-        // Remove any existing element
-        if (this.element && this.element.parentNode) {
-            this.element.parentNode.removeChild(this.element);
+            this.element = newElement;
+            this.updateUI();
+
+            return this.element;
+        } catch (error) {
+            console.warn('Media load failed:', error);
+            return null;
         }
-
-        this.element = newElement;
-
-        // Add event listeners for dynamic updates
-        if (this.element) {
-            this.element.addEventListener('ratechange', () => {
-                this.updateUI();
-            });
-            this.element.addEventListener('focus', () => {
-                this.updateUI();
-            });
-            this.element.addEventListener('blur', () => {
-                this.updateUI();
-            });
-        }
-
-        return this.element;
     }
 
     play() {

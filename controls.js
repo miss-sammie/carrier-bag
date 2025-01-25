@@ -156,7 +156,7 @@ class Controls {
         }
     }
 
-    static switchFile(direction = 'next') {
+    static async switchFile(direction = 'next') {
         const focusedBuffer = Buffer.buffers.find(b => b.focus);
         if (!focusedBuffer) {
             this.warn('No buffer focused');
@@ -168,9 +168,10 @@ class Controls {
             return;
         }
     
-        const length = focusedBuffer.currentCollection.length;
+        const collection = focusedBuffer.currentCollection.items;
+        const length = collection.length;
         let newIndex;
-    
+        
         switch(direction) {
             case 'next':
                 newIndex = (focusedBuffer.currentIndex + 1) % length;
@@ -184,15 +185,14 @@ class Controls {
                 } while (length > 1 && newIndex === focusedBuffer.currentIndex);
                 break;
         }
-    
-        focusedBuffer.currentIndex = newIndex;
-        const mediaObj = focusedBuffer.currentCollection[focusedBuffer.currentIndex];
-        const element = focusedBuffer.loadMedia(mediaObj.url);
-    
-        // Delay reload patch slightly to ensure media is ready
-        //setTimeout(() => requestAnimationFrame(reloadActiveSource), 500);
-       reloadActiveSource()
-        return element;
+
+        try {
+            focusedBuffer.currentIndex = newIndex;
+            await focusedBuffer.loadMedia(collection[newIndex].url);
+            reloadActiveSource();
+        } catch (error) {
+            console.error('Failed to load media:', error);
+        }
     }
 
     
