@@ -5,19 +5,24 @@ import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
 import { loadLibrary, mediaLibrary, getCollection, createCollection  } from './media.js';
 import { UIGrid, BufferStatusComponent } from './interface.js';
-import stateManager from './stateManager.js';
+import { Sidebar } from './sidebar.js';
+//import stateManager from './stateManager.js';
 
 console.log("Imports completed");
 
 // Initialize buffers
 Buffer.initBuffers(2, 0);
 console.log("Buffers initialized");
+
 window.Buffer = Buffer
 window.Controls = Controls
 
+// Initialize sidebar
+const sidebar = new Sidebar();
+window.sidebar = sidebar;
 
 console.log("About to load library...");
-await loadLibrary('library/library-water.json')
+await loadLibrary()
     .then(async () => {
         console.log("Library loaded:", mediaLibrary);
         
@@ -38,8 +43,10 @@ await loadLibrary('library/library-water.json')
         await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
         
         const hydra = initHydra()
-      //  resizeHydraPatch()
         reloadPatch()
+
+        // Update sidebar with loaded data
+        sidebar.update();
     })
     .catch(error => {
         console.error("Error in main:", error);
