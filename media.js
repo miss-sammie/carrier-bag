@@ -87,12 +87,10 @@ function createDefaultCollections(mediaLibrary) {
     mediaLibrary.forEach(mediaObj => {
         // Handle both forward and backslashes, split on either
         const urlParts = mediaObj.url.split(/[/\\]/);
-        console.log('URL parts:', urlParts);
         
         // Extract library name (should be the second part after 'library')
         const libraryIndex = urlParts.findIndex(part => part === 'library') + 1;
         const libraryName = urlParts[libraryIndex];
-        console.log('Library name:', libraryName);
         
         if (libraryName) {
             // Create new collection for this library if it doesn't exist
@@ -119,14 +117,6 @@ function createDefaultCollections(mediaLibrary) {
     libraryCollections.forEach((collection, name) => {
         collections.set(name, collection);
     });
-
-    console.log("Default collections created:", 
-        Array.from(collections.keys()),
-        "\nCollection sizes:", 
-        Array.from(collections.entries()).map(([name, coll]) => 
-            `${name}: ${coll.items.length} items`
-        )
-    );
 }
 
 // Modify loadLibrary to create default collections

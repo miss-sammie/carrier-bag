@@ -165,6 +165,37 @@ class Buffer {
             component.update();
         }
     }
+
+    async loadHTMLElement(elementOrId) {
+        let element;
+        
+        if (typeof elementOrId === 'string') {
+            // If a string is passed, treat it as an ID
+            element = document.getElementById(elementOrId);
+            if (!element) {
+                throw new Error(`Element with id "${elementOrId}" not found`);
+            }
+        } else if (elementOrId instanceof HTMLElement) {
+            // If an HTML element is passed, use it directly
+            element = elementOrId;
+        } else {
+            throw new Error('Invalid input: must be an element ID or HTML Element');
+        }
+
+        // Clean up existing element if any
+        if (this.element && this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+
+        this.element = element;
+        this.filetype = 'html';
+        this.url = null;
+        this.currentCollection = null;
+        this.currentIndex = -1;
+
+        this.updateUI();
+        return this.element;
+    }
 }
 
 export { Buffer };

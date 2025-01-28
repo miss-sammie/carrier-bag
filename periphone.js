@@ -79,7 +79,7 @@ await loadLibrary()
         }, 2000); // Wait 1 second for initialization
 
         initializeTextOverlay();
-
+        
 
         // Update sidebar with loaded data
         sidebar.update();
