@@ -1,5 +1,6 @@
 import { mediaLibrary, collections } from './media.js';
 import { Buffer } from './buffers.js';
+import { toggleOverlay, toggleConsole, setPauseTime } from './sheSpeaks.js';
 
 export class Sidebar {
     constructor() {
@@ -7,6 +8,17 @@ export class Sidebar {
         this.libraries = new Set(); // Track loaded libraries
         this.createSidebar();
         this.initializeEventListeners();
+        this.initializeKeyboardControls();
+        this.visible = true; // Add this to track visibility
+    }
+
+    initializeKeyboardControls() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                this.toggle();
+            }
+        });
     }
 
     createSidebar() {
@@ -93,6 +105,33 @@ export class Sidebar {
             .section.active .chevron {
                 transform: rotate(90deg);
             }
+
+            .control-group {
+                margin: 10px 0;
+                color: #333;
+            }
+
+            .toggle {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+            }
+
+            .toggle input[type="checkbox"] {
+                margin-right: 8px;
+            }
+
+            .label {
+                font-size: 14px;
+            }
+
+            input[type="number"] {
+                width: 80px;
+                padding: 4px;
+                margin-left: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
         `;
         document.head.appendChild(style);
 
@@ -132,9 +171,54 @@ export class Sidebar {
                     <div class="add-button">+ Add Buffer</div>
                 </div>
             </div>
+
+            <!-- Text Section -->
+            <div class="section">
+                <div class="section-header">
+                    <span>Text</span>
+                    <span class="chevron">›</span>
+                </div>
+                <div class="section-content">
+                    <div class="control-group">
+                        <label class="toggle">
+                            <input type="checkbox" id="overlay-toggle" checked>
+                            <span class="label">Overlay</span>
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="toggle">
+                            <input type="checkbox" id="console-toggle" checked>
+                            <span class="label">Console</span>
+                        </label>
+                    </div>
+                    <div class="control-group">
+                        <label>
+                            <span class="label">Speed (ms)</span>
+                            <input type="number" id="pause-time" value="4000" min="100" max="10000" step="100">
+                        </label>
+                    </div>
+                </div>
+            </div>
         `;
 
         document.body.appendChild(this.element);
+
+        // Add event listeners
+        const overlayToggle = document.getElementById('overlay-toggle');
+        const consoleToggle = document.getElementById('console-toggle');
+        const pauseTimeInput = document.getElementById('pause-time');
+
+        overlayToggle.addEventListener('change', () => {
+            toggleOverlay();
+        });
+
+        consoleToggle.addEventListener('change', () => {
+            toggleConsole();
+        });
+
+        pauseTimeInput.addEventListener('change', (e) => {
+            setPauseTime(parseInt(e.target.value));
+        });
     }
 
     renderLibraries() {
@@ -216,7 +300,10 @@ export class Sidebar {
         });
     }
 
-    
+    toggle() {
+        this.visible = !this.visible;
+        this.element.style.display = this.visible ? 'block' : 'none';
+    }
 
     update() {
         // Update libraries content
@@ -236,4 +323,8 @@ export class Sidebar {
         // Reinitialize event listeners
         this.initializeEventListeners();
     }
+
+
+
 }
+

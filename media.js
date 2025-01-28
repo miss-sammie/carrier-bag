@@ -110,33 +110,36 @@ async function loadLibrary(jsonFilePath) {
         if (!jsonFilePath) {
             // Load all JSON files from the library directory
             const libraryPath = './library/';
-            const indexResponse = await fetch(libraryPath + 'index.json');
-            const index = await indexResponse.json();
-            const files = index.files || [];
-            
-            console.log("Found library files:", files);
-            
-            for (const file of files) {
-                if (file.match(/^library-.*\.json$/)) {
-                    await loadLibrary(libraryPath + file);
-                    // Notify sidebar of loaded library
-                    if (window.sidebar) {
-                        window.sidebar.addLibrary(file);
+            try {
+                const indexResponse = await fetch(libraryPath + 'index.json');
+                const index = await indexResponse.json();
+                const files = index.files || [];
+                
+                console.log("Found library files:", files);
+                
+                for (const file of files) {
+                    try {
+                        await loadLibrary(libraryPath + file);
+                        // Notify sidebar of loaded library
+                        if (window.sidebar) {
+                            window.sidebar.addLibrary(file);
+                        }
+                    } catch (error) {
+                        console.warn(`Failed to load ${file}:`, error);
+                        // Continue with other files even if one fails
+                        continue;
                     }
                 }
+                
+                // Create default collections even if some files failed to load
+                createDefaultCollections(mediaLibrary);
+                
+                return mediaLibrary;
+            } catch (error) {
+                console.warn("Failed to load index.json, creating empty collections:", error);
+                createDefaultCollections([]);
+                return mediaLibrary;
             }
-            
-            // Create default collections only after all files are loaded
-            createDefaultCollections(mediaLibrary);
-            
-            console.log("Library loaded:", {
-                total: mediaLibrary.length,
-                types: [...new Set(mediaLibrary.map(m => m.type))],
-                firstItem: mediaLibrary[0],
-                collections: Array.from(collections.keys())
-            });
-            
-            return mediaLibrary;
         }
 
         console.log("Loading library from:", jsonFilePath);
@@ -154,16 +157,10 @@ async function loadLibrary(jsonFilePath) {
             mediaLibrary.push(mediaObj);
         });
 
-        // Extract filename from path and notify sidebar
-        const filename = jsonFilePath.split('/').pop();
-        if (window.sidebar) {
-            window.sidebar.addLibrary(filename);
-        }
-
         return mediaLibrary;
 
     } catch (error) {
-        console.error("Failed to load library:", error);
+        console.warn("Failed to load library file:", error);
         throw error;
     }
 }

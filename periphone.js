@@ -1,12 +1,11 @@
 console.log("Starting periphone.js");
+import { frequencyToLetter, initializeTextOverlay, postText } from './sheSpeaks.js'
 import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './hydra.js';
-import { frequencyToLetter } from './sheSpeaks.js'
 import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
-import { loadLibrary, mediaLibrary, getCollection, createCollection  } from './media.js';
+import { loadLibrary, mediaLibrary, getCollection } from './media.js';
 import { UIGrid, BufferStatusComponent } from './interface.js';
 import { Sidebar } from './sidebar.js';
-//import stateManager from './stateManager.js';
 
 console.log("Imports completed");
 
@@ -14,36 +13,73 @@ console.log("Imports completed");
 Buffer.initBuffers(2, 0);
 console.log("Buffers initialized");
 
-window.Buffer = Buffer
-window.Controls = Controls
+window.Buffer = Buffer;
+window.Controls = Controls;
 
 // Initialize sidebar
 const sidebar = new Sidebar();
 window.sidebar = sidebar;
+
+// Initialize UI first
+const ui = new UIGrid();
+window.ui = ui;
+
+// Add buffer status components to the first row
+Buffer.buffers.forEach((buffer, index) => {
+    ui.addComponent(0, index, BufferStatusComponent, buffer);
+});
 
 console.log("About to load library...");
 await loadLibrary()
     .then(async () => {
         console.log("Library loaded:", mediaLibrary);
         
-        // First set up UI
-        const ui = new UIGrid();
-        window.ui = ui;
-        
-        // Then set collections
-        Buffer.buffers[0].setCollection('Videos')  
-        Buffer.buffers[1].setCollection('Images')
+        // Then set collections if they exist
+        try {
+            if (getCollection('Videos')?.items.length > 0) {
+                Buffer.buffers[0].setCollection('Videos');
+            }
+            if (getCollection('Images')?.items.length > 0) {
+                Buffer.buffers[1].setCollection('Images');
+            }
+        } catch (error) {
+            console.warn('Failed to set initial collections:', error);
+        }
         
         // Initialize controls
-        Controls.init()
-        Controls.initializeMIDI()
-        
-        // Wait for media to load
-        await Buffer.buffers[0].loadMedia(Buffer.buffers[0].currentCollection.items[0].url);
-        await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
-        
-        const hydra = initHydra()
-        reloadPatch()
+        Controls.init();
+        Controls.initializeMIDI();
+
+        // Only try to load media if collections are set
+        try {
+            if (Buffer.buffers[0].currentCollection?.items.length > 0) {
+                await Buffer.buffers[0].loadMedia(Buffer.buffers[0].currentCollection.items[0].url);
+            }
+            if (Buffer.buffers[1].currentCollection?.items.length > 0) {
+                await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
+            }
+        } catch (error) {
+            console.warn('Failed to load initial media:', error);
+        }
+
+        const hydra = initHydra();
+        reloadPatch();
+
+        setTimeout(() => {
+            // Use requestAnimationFrame for smoother updates
+            function update() {
+                const fftData = a.fft;
+                if (fftData) {
+                    frequencyToLetter(fftData);
+                    
+                }
+                requestAnimationFrame(update);
+            }
+            update();
+        }, 2000); // Wait 1 second for initialization
+
+        initializeTextOverlay();
+
 
         // Update sidebar with loaded data
         sidebar.update();
@@ -52,35 +88,13 @@ await loadLibrary()
         console.error("Error in main:", error);
     });
 
-//console.log(media);
-
-// Wait a bit for audio to initialize
-setTimeout(() => {
-    // Use requestAnimationFrame for smoother updates
-    function update() {
-        const fftData = a.fft;
-        if (fftData) {
-            frequencyToLetter(fftData);
-        }
-        requestAnimationFrame(update);
-    }
-    update();
-}, 2000); // Wait 1 second for initialization
-
-// After your other initializations:
-// const ui = new UIGrid();
-// window.ui = ui; // Make the UIGrid instance globally accessible
-
-// Add buffer status components to the first row
-Buffer.buffers.forEach((buffer, index) => {
-    ui.addComponent(0, index, BufferStatusComponent, buffer);
-});
-
 // Function to update UI components
 function updateUI() {
-    ui.components.forEach(component => {
-        component.update();
-    });
+    if (ui && ui.components) {
+        ui.components.forEach(component => {
+            component.update();
+        });
+    }
     requestAnimationFrame(updateUI);
 }
 

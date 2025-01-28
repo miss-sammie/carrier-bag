@@ -9,8 +9,31 @@ let consonantCount = 0
 let noConsonant = false
 let caps = false
 
-// At the top with other variables
+// Add the new state variables
+let overlayVisible = true;
+let consoleEnabled = true;
+let pauseTime = 4000;
 let lexicon = new Set();
+let textOverlayArray = [];
+const MAX_OVERLAY_TEXTS = 10;
+
+// Add the control functions
+export function toggleOverlay() {
+    overlayVisible = !overlayVisible;
+    const container = document.getElementById('textOverlayContainer');
+    if (container) {
+        container.style.display = overlayVisible ? 'flex' : 'none';
+    }
+}
+
+export function toggleConsole() {
+    consoleEnabled = !consoleEnabled;
+}
+
+export function setPauseTime(time) {
+    pauseTime = time;
+    console.log('Pause time set to:', pauseTime);
+}
 
 // Add the dictionary loading function
 async function loadLexicon() {
@@ -58,46 +81,110 @@ function findWordsInText(text) {
     return foundWords;
 }
 
+// Add function to create and initialize the overlay container
+function initializeTextOverlay() {
+    const overlayContainer = document.createElement('div');
+    overlayContainer.id = 'textOverlayContainer';
+    overlayContainer.style.cssText = `
+        position: fixed;
+        bottom: 0;
+        left: 25vw;
+        transform: translateX(-50%);
+        z-index: 1;
+        pointer-events: none;
+        color: white;
+        font-family: monospace;
+        text-align: left;
+        height: 80vh;
+        width: 50vw;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 72px;
+    `;
+    document.body.appendChild(overlayContainer);
+
+    // Create initial empty text elements
+    for (let i = 0; i < MAX_OVERLAY_TEXTS; i++) {
+        const textElement = document.createElement('div');
+        textElement.style.cssText = `
+            transition: transform 0.5s ease;
+            margin-bottom: 10px;
+            white-space: nowrap;
+            overflow: visible;
+        `;
+        textElement.textContent = '';
+        overlayContainer.appendChild(textElement);
+        textOverlayArray.push(textElement);
+    }
+}
+
+// Modify postText to update the overlay
 function postText(text) {
     pausing = false;
     
+    // Find words and create highlighted version for overlay
     const foundWords = findWordsInText(text);
-    if (foundWords.length > 0) {
-        // Start with the original text
-        let highlightedText = text;
-        const styles = [];
-        
-        // Sort found words by position from end to start
-        foundWords.sort((a, b) => b.start - a.start);
-        
-        // Insert style markers and collect styles
-        foundWords.forEach(({start, end}) => {
-            highlightedText = 
-                highlightedText.slice(0, start) + 
-                ' %c' + highlightedText.slice(start, end) + ' %c' +
-                highlightedText.slice(end);
+    let displayText = text;
+    
+    if (overlayVisible) {
+        if (foundWords.length > 0) {
+            // Sort words from last to first to maintain indices
+            foundWords.sort((a, b) => b.start - a.start);
             
-            // Add the style for this word and the reset style
-            styles.push(
-                'color: red; font-weight: bold; font-size: 14pt;',
-                ''  // Reset style
-            );
-        });
+            // Create highlighted version for overlay
+            foundWords.forEach(({word, start, end}) => {
+                const before = displayText.slice(0, start);
+                const highlighted = displayText.slice(start, end);
+                const after = displayText.slice(end);
+                displayText = `${before}<span style="color: red; font-weight: bold">${highlighted}</span>${after}`;
+            });
+        }
         
-        console.error(highlightedText, ...styles);
-    } else {
-        console.log(text);
+        // Update text overlay
+        textOverlayArray.shift().remove(); // Remove first element
+        const newText = document.createElement('div');
+        newText.style.cssText = `
+            transition: transform 0.5s ease;
+            margin-bottom: 10px;
+            white-space: nowrap;
+            overflow: visible;
+        `;
+        newText.innerHTML = displayText;
+        textOverlayArray.push(newText);
+        document.getElementById('textOverlayContainer').appendChild(newText);
+    }
+    
+    // Only log to console if consoleEnabled is true
+    if (consoleEnabled) {
+        if (foundWords.length > 0) {
+            let highlightedText = text;
+            const styles = [];
+            foundWords.forEach(({start, end}) => {
+                highlightedText = 
+                    highlightedText.slice(0, start) + 
+                    ' %c' + highlightedText.slice(start, end) + ' %c' +
+                    highlightedText.slice(end);
+                styles.push(
+                    'color: red; font-weight: bold; font-size: 14pt;',
+                    ''
+                );
+            });
+            console.error(highlightedText, ...styles);
+        } else {
+            console.log(text);
+        }
     }
     
     letterCount = 0;
     nextText = '';  
     sendCount = Math.floor(Math.random() * 23) + 1;
-    pause = Math.floor(Math.random() * 1000) + 299;
+    pause = pauseTime;  // Use the configurable pauseTime instead of hardcoded value
 }
 
-// Call loadLexicon when the script starts
+// Call initializeTextOverlay when the script starts
+initializeTextOverlay();
 loadLexicon();
-
 
 function randomLetter(operator) {
     const letters = 'TBTRROOHEHYSODDIMBINEOPAIDFRRDSAEIASEEUNVXRTJOLVRTAOLAAIOZCIANGUTFNEQEYAUPCGLLOKAEENWEEIIIWESGUTNM';
@@ -127,9 +214,6 @@ function randomLetter(operator) {
         return letters[Math.floor(Math.random() * letters.length)];
     }
 }
-
-
-
 
 function frequencyToLetter(fftData) {
     // Check if fftData exists and has values
@@ -197,4 +281,4 @@ function frequencyToLetter(fftData) {
 }
 
 // Export the functions we need in other files
-export { frequencyToLetter };
+export { frequencyToLetter, initializeTextOverlay, postText};

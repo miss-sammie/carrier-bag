@@ -77,7 +77,6 @@ class Buffer {
                 newElement.loop = true;
                 newElement.muted = true;
                 newElement.autoplay = true;
-                newElement.controls = true;
                 newElement.play()
                 this.filetype = 'video';
                 break;
