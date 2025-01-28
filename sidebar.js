@@ -382,28 +382,17 @@ export class Sidebar {
                 const bufferIndex = parseInt(e.target.dataset.buffer);
                 const selectedCollection = e.target.value;
                 const buffer = Buffer.buffers[bufferIndex];
-                const collection = collections.get(selectedCollection);
                 
-                if (buffer && collection) {
-                    // Update buffer's collection
-                    buffer.collection = selectedCollection;
-                    
-                    // If the buffer has a current media object, update its collections
-                    if (buffer.currentMedia) {
-                        // Remove from old collections
-                        buffer.currentMedia.collections.forEach(collName => {
-                            const oldCollection = collections.get(collName);
-                            if (oldCollection) {
-                                oldCollection.remove(buffer.currentMedia);
-                            }
-                        });
+                if (buffer && selectedCollection) {
+                    try {
+                        buffer.setCollection(selectedCollection);
+                        console.log(`Set buffer ${bufferIndex} collection to:`, selectedCollection);
                         
-                        // Add to new collection
-                        collection.add(buffer.currentMedia);
+                        // Update the UI after collection is set and first media is loaded
+                        setTimeout(() => this.update(), 100);
+                    } catch (error) {
+                        console.error('Failed to set collection:', error);
                     }
-                    
-                    console.log(`Set buffer ${bufferIndex} collection to:`, selectedCollection);
-                    this.update(); // Update the sidebar display
                 }
             });
         });

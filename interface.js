@@ -8,7 +8,7 @@ export class UIGrid {
         this.cols = 4;
         this.components = new Map();
         this.createGrid();
-        this.initializeKeyboardControls();
+        //this.initializeKeyboardControls();
     }
 
     createGrid() {
@@ -35,14 +35,14 @@ export class UIGrid {
         console.log("UIGrid created");
     }
 
-    initializeKeyboardControls() {
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                this.toggle();
-            }
-        });
-    }
+    // initializeKeyboardControls() {
+    //     document.addEventListener('keydown', (e) => {
+    //         if (e.key === 'Tab') {
+    //             e.preventDefault();
+    //             this.toggle();
+    //         }
+    //     });
+    // }
 
     toggle() {
         this.visible = !this.visible;
