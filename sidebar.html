@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background: #e4e4e479;
+            color: #efefef65;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #ece9e989;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .section-content {
+            display: none;
+            padding: 10px;
+            margin-left: 10px;
+            border-left: 1px solid #333;
+        }
+
+        .section-content.active {
+            display: block;
+        }
+
+        .item {
+            padding: 8px;
+            margin: 4px 0;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 4px;
+        }
+
+        .item:hover {
+            background: #333;
+        }
+
+        .add-button {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-top: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #888;
+        }
+
+        .add-button:hover {
+            color: #fff;
+        }
+
+        .chevron {
+            transition: transform 0.3s;
+        }
+
+        .section.active .chevron {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <!-- Collections Section -->
+        <div class="section">
+            <div class="section-header">
+                <span>Collections</span>
+                <span class="chevron">›</span>
+            </div>
+            <div class="section-content">
+                <div class="item">Collection 1</div>
+                <div class="item">Collection 2</div>
+                <div class="add-button">+ Add Collection</div>
+            </div>
+        </div>
+
+        <!-- Buffers Section -->
+        <div class="section">
+            <div class="section-header">
+                <span>Buffers</span>
+                <span class="chevron">›</span>
+            </div>
+            <div class="section-content">
+                <div class="item">Buffer 1 (Video)</div>
+                <div class="item">Buffer 2 (Audio)</div>
+                <div class="add-button">+ Add Buffer</div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="section">
+            <div class="section-header">
+                <span>Controls</span>
+                <span class="chevron">›</span>
+            </div>
+            <div class="section-content">
+                <div class="item">MIDI Controls</div>
+                <div class="item">Keyboard Controls</div>
+                <div class="add-button">+ Add Control Map</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add click handlers for section headers
+        document.querySelectorAll('.section-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const section = header.parentElement;
+                const content = header.nextElementSibling;
+                
+                section.classList.toggle('active');
+                content.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

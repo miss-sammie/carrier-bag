@@ -1,6 +1,7 @@
 import { mediaLibrary, collections } from './media.js';
 import { Buffer } from './buffers.js';
 import { toggleOverlay, toggleConsole, setPauseTime } from './sheSpeaks.js';
+import { Controls } from './controls.js';
 
 export class Sidebar {
     constructor() {
@@ -132,6 +133,54 @@ export class Sidebar {
                 border: 1px solid #ccc;
                 border-radius: 4px;
             }
+
+            .buffer-container {
+                margin-bottom: 8px;
+            }
+
+            .buffer-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .buffer-settings {
+                display: none;
+                padding: 8px;
+                margin-left: 16px;
+                border-left: 1px solid #333;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+
+            .buffer-container.active .buffer-settings {
+                display: block;
+            }
+
+            .buffer-container.active .chevron {
+                transform: rotate(90deg);
+            }
+
+            .buffer-setting {
+                margin: 8px 0;
+            }
+
+            .buffer-setting label {
+                display: block;
+                margin-bottom: 4px;
+                font-size: 12px;
+                color: #333;
+            }
+
+            .collection-select, .speed-select {
+                width: 100%;
+                padding: 4px;
+                background: #fff;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #333;
+            }
         `;
         document.head.appendChild(style);
 
@@ -255,8 +304,36 @@ export class Sidebar {
         if (!Buffer.buffers) return '';
         return Buffer.buffers
             .map((buffer, index) => `
-                <div class="item" data-buffer="${index}">
-                    Buffer ${index} (${buffer.type || 'unset'})
+                <div class="buffer-container">
+                    <div class="item buffer-header" data-buffer="${index}">
+                        Buffer ${index} (${buffer.type || 'unset'})
+                        <span class="chevron">›</span>
+                    </div>
+                    <div class="buffer-settings">
+                        <div class="buffer-setting">
+                            <label>Collection:</label>
+                            <select class="collection-select" data-buffer="${index}">
+                                <option value="">Select Collection</option>
+                                ${Array.from(collections.keys())
+                                    .map(name => `<option value="${name}" 
+                                        ${buffer.collection === name ? 'selected' : ''}>
+                                        ${name}
+                                    </option>`)
+                                    .join('')}
+                            </select>
+                        </div>
+                        <div class="buffer-setting">
+                            <label>Playback Speed:</label>
+                            <select class="speed-select" data-buffer="${index}">
+                                ${Controls.speeds.map(speed => 
+                                    `<option value="${speed}" 
+                                        ${buffer.element?.playbackRate === speed ? 'selected' : ''}>
+                                        ${speed}x
+                                    </option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
                 </div>
             `).join('');
     }
@@ -290,12 +367,57 @@ export class Sidebar {
             });
         });
 
-        // Buffer click handlers
-        this.element.querySelectorAll('[data-buffer]').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent event from bubbling up
-                const bufferIndex = parseInt(item.dataset.buffer);
-                console.log('Selected buffer:', bufferIndex);
+        // Buffer click handlers for expand/collapse
+        this.element.querySelectorAll('.buffer-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const container = header.closest('.buffer-container');
+                container.classList.toggle('active');
+            });
+        });
+
+        // Collection select handlers
+        this.element.querySelectorAll('.collection-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const bufferIndex = parseInt(e.target.dataset.buffer);
+                const selectedCollection = e.target.value;
+                const buffer = Buffer.buffers[bufferIndex];
+                const collection = collections.get(selectedCollection);
+                
+                if (buffer && collection) {
+                    // Update buffer's collection
+                    buffer.collection = selectedCollection;
+                    
+                    // If the buffer has a current media object, update its collections
+                    if (buffer.currentMedia) {
+                        // Remove from old collections
+                        buffer.currentMedia.collections.forEach(collName => {
+                            const oldCollection = collections.get(collName);
+                            if (oldCollection) {
+                                oldCollection.remove(buffer.currentMedia);
+                            }
+                        });
+                        
+                        // Add to new collection
+                        collection.add(buffer.currentMedia);
+                    }
+                    
+                    console.log(`Set buffer ${bufferIndex} collection to:`, selectedCollection);
+                    this.update(); // Update the sidebar display
+                }
+            });
+        });
+
+        // Speed select handlers
+        this.element.querySelectorAll('.speed-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const bufferIndex = parseInt(e.target.dataset.buffer);
+                const speed = parseFloat(e.target.value);
+                const buffer = Buffer.buffers[bufferIndex];
+                if (buffer.element) {
+                    buffer.element.playbackRate = speed;
+                    console.log(`Setting buffer ${bufferIndex} playback speed to: ${speed}x`);
+                }
             });
         });
     }
@@ -323,8 +445,5 @@ export class Sidebar {
         // Reinitialize event listeners
         this.initializeEventListeners();
     }
-
-
-
 }
 

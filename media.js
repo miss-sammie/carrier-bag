@@ -82,17 +82,42 @@ function createDefaultCollections(mediaLibrary) {
         'shape': new MediaCollection('3D Shapes')
     };
 
-    // Add each media object to its type collection
+    // Create collections for each library
+    const libraryCollections = new Map();
     mediaLibrary.forEach(mediaObj => {
-        const collection = typeCollections[mediaObj.type];
-        if (collection) {
-            collection.add(mediaObj);
+        // Handle both forward and backslashes, split on either
+        const urlParts = mediaObj.url.split(/[/\\]/);
+        console.log('URL parts:', urlParts);
+        
+        // Extract library name (should be the second part after 'library')
+        const libraryIndex = urlParts.findIndex(part => part === 'library') + 1;
+        const libraryName = urlParts[libraryIndex];
+        console.log('Library name:', libraryName);
+        
+        if (libraryName) {
+            // Create new collection for this library if it doesn't exist
+            if (!libraryCollections.has(libraryName)) {
+                libraryCollections.set(libraryName, new MediaCollection(libraryName));
+            }
+            
+            // Add media to library collection
+            libraryCollections.get(libraryName).add(mediaObj);
+            
+            // Also add to type collection
+            const typeCollection = typeCollections[mediaObj.type];
+            if (typeCollection) {
+                typeCollection.add(mediaObj);
+            }
         }
     });
 
-    // Store collections in the map
+    // Store all collections in the map
     Object.values(typeCollections).forEach(collection => {
         collections.set(collection.name, collection);
+    });
+    
+    libraryCollections.forEach((collection, name) => {
+        collections.set(name, collection);
     });
 
     console.log("Default collections created:", 

@@ -137,7 +137,7 @@ function postText(text) {
                 const before = displayText.slice(0, start);
                 const highlighted = displayText.slice(start, end);
                 const after = displayText.slice(end);
-                displayText = `${before}<span style="color: red; font-weight: bold">${highlighted}</span>${after}`;
+                displayText = `${before}<span style="color: red; font-weight: bold; font-size: 110%; margin: 0 0.2em">${highlighted}</span>${after}`;
             });
         }
         

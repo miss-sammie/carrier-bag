@@ -253,30 +253,31 @@ class Controls {
 
         const element = focusedBuffer.element;
         const currentSpeed = element.playbackRate;
-        const currentIndex = this.speeds.indexOf(currentSpeed);
+        const currentIndex = Controls.speeds.indexOf(currentSpeed);
+        let newIndex;
 
         switch(operation) {
             case 'faster':
-                if (currentIndex < this.speeds.length - 1) {
-                    element.playbackRate = this.speeds[currentIndex + 1];
-                    this.log(`Speed shifted faster to ${element.playbackRate}`);
-                }
+                newIndex = Math.min(currentIndex + 1, Controls.speeds.length - 1);
                 break;
             case 'slower':
-                if (currentIndex > 0) {
-                    element.playbackRate = this.speeds[currentIndex - 1];
-                    this.log(`Speed shifted slower to ${element.playbackRate}`);
-                }
+                newIndex = Math.max(currentIndex - 1, 0);
                 break;
             case 'normal':
-                element.playbackRate = 1;
-                this.log(`Speed shifted to normal`);
+                newIndex = Controls.speeds.indexOf(1);
                 break;
             default:
                 this.warn(`Invalid speed shift operation: ${operation}`);
+                return;
         }
 
-        reloadActiveSource();
+        element.playbackRate = Controls.speeds[newIndex];
+        this.log(`Speed changed to ${Controls.speeds[newIndex]}x`);
+
+        // Update sidebar if it exists
+        if (window.sidebar) {
+            window.sidebar.update();
+        }
     }
 
     static togglePlay(element) {
