@@ -181,6 +181,18 @@ export class Sidebar {
                 font-size: 12px;
                 color: #333;
             }
+
+            input[type="range"] {
+                width: 100%;
+                margin: 8px 0;
+            }
+
+            .speed-value {
+                display: block;
+                margin-top: 4px;
+                font-size: 12px;
+                color: #333;
+            }
         `;
         document.head.appendChild(style);
 
@@ -243,7 +255,12 @@ export class Sidebar {
                     <div class="control-group">
                         <label>
                             <span class="label">Speed (ms)</span>
-                            <input type="number" id="pause-time" value="4000" min="100" max="10000" step="100">
+                            <input type="range" id="pause-time" 
+                                value="4000" 
+                                min="500" 
+                                max="5000" 
+                                step="100">
+                            <span class="speed-value">4000ms</span>
                         </label>
                     </div>
                 </div>
@@ -256,6 +273,7 @@ export class Sidebar {
         const overlayToggle = document.getElementById('overlay-toggle');
         const consoleToggle = document.getElementById('console-toggle');
         const pauseTimeInput = document.getElementById('pause-time');
+        const speedValue = pauseTimeInput.nextElementSibling;
 
         overlayToggle.addEventListener('change', () => {
             toggleOverlay();
@@ -265,8 +283,10 @@ export class Sidebar {
             toggleConsole();
         });
 
-        pauseTimeInput.addEventListener('change', (e) => {
-            setPauseTime(parseInt(e.target.value));
+        pauseTimeInput.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            speedValue.textContent = `${value}ms`;
+            setPauseTime(value);
         });
     }
 

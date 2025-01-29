@@ -67,7 +67,6 @@ function reloadPatch() {
     s0.initCam()
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
-
     src(s1)
         .modulate(s0)
         .blend(s2)
