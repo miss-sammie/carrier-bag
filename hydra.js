@@ -69,7 +69,7 @@ function reloadPatch() {
     s2.init({src: Buffer.buffers[1].element});
     src(s1)
         .modulate(s0)
-        .blend(s2)
+        .modulate(s2, () => a.fft[0])
         .out();
 }
 

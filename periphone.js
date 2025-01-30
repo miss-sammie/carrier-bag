@@ -4,7 +4,6 @@ import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './
 import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
 import { loadLibrary, mediaLibrary, getCollection } from './media.js';
-import { UIGrid, BufferStatusComponent } from './interface.js';
 import { Sidebar } from './sidebar.js';
 
 console.log("Imports completed");
@@ -20,14 +19,7 @@ window.Controls = Controls;
 const sidebar = new Sidebar();
 window.sidebar = sidebar;
 
-// Initialize UI first
-const ui = new UIGrid();
-window.ui = ui;
 
-// Add buffer status components to the first row
-Buffer.buffers.forEach((buffer, index) => {
-    ui.addComponent(0, index, BufferStatusComponent, buffer);
-});
 
 console.log("About to load library...");
 await loadLibrary()
@@ -88,18 +80,7 @@ await loadLibrary()
         console.error("Error in main:", error);
     });
 
-// Function to update UI components
-function updateUI() {
-    if (ui && ui.components) {
-        ui.components.forEach(component => {
-            component.update();
-        });
-    }
-    requestAnimationFrame(updateUI);
-}
 
-// Start the UI update loop
-updateUI();
 
 
 

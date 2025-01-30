@@ -1,7 +1,6 @@
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 import { reloadPatch } from './hydra.js';
 import { Controls } from './controls.js';
-import { UIGrid, BufferStatusComponent } from './interface.js';
 
 
 class Buffer {
@@ -109,7 +108,7 @@ class Buffer {
             }
 
             this.element = newElement;
-            this.updateUI();
+          //  this.updateUI();
 
             return this.element;
         } catch (error) {
@@ -159,12 +158,12 @@ class Buffer {
         this.currentIndex = -1;
     }
 
-    updateUI() {
-        const component = window.ui.components.get(`${this.slot}-0`); // Use the global UIGrid instance
-        if (component) {
-            component.update();
-        }
-    }
+    // updateUI() {
+    //     const component = window.ui.components.get(`${this.slot}-0`); // Use the global UIGrid instance
+    //     if (component) {
+    //         component.update();
+    //     }
+    // }
 
     async loadHTMLElement(elementOrId) {
         let element;
@@ -193,7 +192,7 @@ class Buffer {
         this.currentCollection = null;
         this.currentIndex = -1;
 
-        this.updateUI();
+        //this.updateUI();
         return this.element;
     }
 }
