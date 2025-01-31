@@ -48,13 +48,100 @@ class Controls {
         72: () => Controls.speedShift('normal') // C#5
     };
 
+    static autoIntervals = {
+        switch: null,
+        time: null,
+        speed: null
+    };
+
+    static createAutoInterval(type, callback, interval) {
+        // Clear existing interval of this type if it exists
+        if (this.autoIntervals[type]) {
+            clearInterval(this.autoIntervals[type]);
+            this.autoIntervals[type] = null;
+            this.log(`Auto-${type} interval stopped`);
+        }
+
+        // Create new interval if valid interval provided
+        if (typeof interval === 'number') {
+            // Add a small delay before starting the interval
+            setTimeout(() => {
+                // Only create the interval if it hasn't been cleared during the delay
+                if (!this.autoIntervals[type]) {
+                    this.autoIntervals[type] = setInterval(callback, interval);
+                    this.log(`Auto-${type} interval started: ${interval}ms`);
+                }
+            }, 150); // 150ms delay
+        }
+    }
+
+    static clearAutoInterval(type) {
+        if (this.autoIntervals[type]) {
+            clearInterval(this.autoIntervals[type]);
+            this.autoIntervals[type] = null;
+            this.log(`Auto-${type} interval stopped`);
+        }
+    }
+
     static midiCCMapping = {
         37: (value) => { // CC 1
             const pauseTime = Math.floor((value / 127) * 3999) + 1;
             setPauseTime(pauseTime);
-            Controls.log(`Pause time set to ${pauseTime}ms`);
-        }
+        },
+        38: (value) => {
+            if (value < 54) {
+                // Map 0-54 to speeds between 0.25 and 1
+                const normalizedValue = value / 54;
+                const speed = 0.25 + (normalizedValue * 0.75); // 0.75 is the difference between 1 and 0.25
+                Controls.speedShift(speed);
+            } else if (value > 74) {
+                // Map 74-127 to speeds between 1 and 8
+                const normalizedValue = (value - 74) / (127 - 74);
+                const speed = 1 + (normalizedValue * 7); // 7 is the difference between 8 and 1
+                Controls.speedShift(speed);
+            } else {
+                // Center zone sets speed to 1
+                Controls.speedShift(1);
+            }
+        },
+        39: (value) => {
+            if (value < 54) {
+                const normalizedValue = value / 54;
+                const interval = Math.floor(1000 + normalizedValue * 4000);
+                Controls.timeShift('backward');
+                Controls.createAutoInterval('time', () => Controls.timeShift('backward'), interval);
+            } else if (value > 74) {
+                const normalizedValue = (value - 74) / (127 - 74);
+                const interval = Math.floor(5000 - normalizedValue * 4000);
+                Controls.timeShift('forward');
+                Controls.createAutoInterval('time', () => Controls.timeShift('forward'), interval);
+            } else {
+                Controls.clearAutoInterval('time');
+            }
+        },
+        40: (function() {
+            let lastValue = null;
+            return (value) => {
+                if (value === lastValue) return;
+                lastValue = value;
+
+                if (value < 54) {
+                    const normalizedValue = value / 54;
+                    const interval = Math.floor(4000 + normalizedValue * 21000);
+                    Controls.switchFile('prev');
+                    Controls.createAutoInterval('switch', () => Controls.switchFile('prev'), interval);
+                } else if (value > 74) {
+                    const normalizedValue = (value - 74) / (127 - 74);
+                    const interval = Math.floor(25000 - normalizedValue * 21000);
+                    Controls.switchFile('next');
+                    Controls.createAutoInterval('switch', () => Controls.switchFile('next'), interval);
+                } else {
+                    Controls.clearAutoInterval('switch');
+                }
+            };
+        })()
     };
+
 
     static init() {
         Object.entries(this.keyMapping).forEach(([key, handler]) => {
@@ -182,7 +269,7 @@ class Controls {
             this.error('No collection set for this buffer');
             return;
         }
-    
+
         const collection = focusedBuffer.currentCollection.items;
         const length = collection.length;
         let newIndex;
@@ -227,14 +314,15 @@ class Controls {
             return;
         }
     
+        // Store whether the element was playing before the time shift
+        const wasPlaying = !element.paused;
+    
         switch(operation) {
             case 'forward':
-                // Use modulo to wrap around if we exceed duration
                 element.currentTime = (element.currentTime + 2) % duration;
                 this.log(`Time shifted forward to ${element.currentTime.toFixed(2)}s`);
                 break;
             case 'backward':
-                // Add duration before modulo to handle negative values
                 element.currentTime = ((element.currentTime - 2) + duration) % duration;
                 this.log(`Time shifted backward to ${element.currentTime.toFixed(2)}s`);
                 break;
@@ -248,18 +336,20 @@ class Controls {
                 break;
             default:
                 this.warn(`Invalid time shift operation: ${operation}`);
+                return;
         }
 
-        // Make sure the element is playing after time shift
-        if (!element.paused) {
-            element.play();
-        }
+        // Resume playback if it was playing before
+      //  if (wasPlaying) {
+            element.play()
+            //.catch(e => this.warn('Could not resume playback:', e));
+      //  }
 
         // Reload Hydra source to reflect the changes
         reloadActiveSource();
     }
 
-    static speedShift(operation) {
+    static speedShift(speed) {
         const focusedBuffer = Buffer.buffers.find(b => b.focus);
         if (!focusedBuffer || !focusedBuffer.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {
             this.warn('Cannot speed shift: no valid media element');
@@ -267,27 +357,35 @@ class Controls {
         }
 
         const element = focusedBuffer.element;
-        const currentSpeed = element.playbackRate;
-        const currentIndex = Controls.speeds.indexOf(currentSpeed);
-        let newIndex;
 
-        switch(operation) {
-            case 'faster':
-                newIndex = Math.min(currentIndex + 1, Controls.speeds.length - 1);
-                break;
-            case 'slower':
-                newIndex = Math.max(currentIndex - 1, 0);
-                break;
-            case 'normal':
-                newIndex = Controls.speeds.indexOf(1);
-                break;
-            default:
-                this.warn(`Invalid speed shift operation: ${operation}`);
-                return;
+        if (typeof speed === 'number') {
+            // Clamp speed between 0.25 and 8
+            const clampedSpeed = Math.max(0.25, Math.min(8, speed));
+            element.playbackRate = clampedSpeed;
+            this.log(`Speed changed to ${clampedSpeed.toFixed(2)}x`);
+        } else {
+            // Handle existing string-based operations ('faster', 'slower', 'normal')
+            const currentSpeed = element.playbackRate;
+            const currentIndex = Controls.speeds.indexOf(currentSpeed);
+            let newIndex;
+
+            switch(speed) {
+                case 'faster':
+                    newIndex = Math.min(currentIndex + 1, Controls.speeds.length - 1);
+                    break;
+                case 'slower':
+                    newIndex = Math.max(currentIndex - 1, 0);
+                    break;
+                case 'normal':
+                    newIndex = Controls.speeds.indexOf(1);
+                    break;
+                default:
+                    this.warn(`Invalid speed shift operation: ${speed}`);
+                    return;
+            }
+            element.playbackRate = Controls.speeds[newIndex];
+            this.log(`Speed changed to ${Controls.speeds[newIndex]}x`);
         }
-
-        element.playbackRate = Controls.speeds[newIndex];
-        this.log(`Speed changed to ${Controls.speeds[newIndex]}x`);
 
         // Update sidebar if it exists
         if (window.sidebar) {
