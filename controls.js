@@ -1,6 +1,7 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
+import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 
 
 class Controls {
@@ -46,9 +47,18 @@ class Controls {
         71: () => Controls.speedShift('faster'), // C5
         72: () => Controls.speedShift('normal') // C#5
     };
-    
+
+    static midiCCMapping = {
+        37: (value) => { // CC 1
+            const pauseTime = Math.floor((value / 127) * 3999) + 1;
+            setPauseTime(pauseTime);
+            Controls.log(`Pause time set to ${pauseTime}ms`);
+        }
+    };
+
     static init() {
         Object.entries(this.keyMapping).forEach(([key, handler]) => {
+
             document.addEventListener('keyup', (event) => {
                 if (event.code === key) {
                     handler();
@@ -111,6 +121,11 @@ class Controls {
             const handler = Controls.midiMapping[note];
             if (handler) {
                 handler();
+            }
+        } else if (status === 176) { // Control Change (CC)
+            const handler = Controls.midiCCMapping[note];
+            if (handler) {
+                handler(velocity);
             }
         }
     }

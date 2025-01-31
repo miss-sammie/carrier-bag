@@ -17,6 +17,8 @@ let lexicon = new Set();
 let textOverlayArray = [];
 const MAX_OVERLAY_TEXTS = 10;
 
+
+
 // Add the control functions
 export function toggleOverlay() {
     overlayVisible = !overlayVisible;
@@ -28,6 +30,13 @@ export function toggleOverlay() {
 
 export function toggleConsole() {
     consoleEnabled = !consoleEnabled;
+}
+
+export function getPauseTime() {
+    return {
+        pauseTime
+    }
+
 }
 
 export function setPauseTime(time) {
