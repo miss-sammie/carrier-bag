@@ -63,7 +63,24 @@ function reloadActiveSource() {
 }
 
 // Reload entire patch
-function reloadPatch() {
+function reloadPatch(patch) {
+    // s0.initCam()
+    // s1.init({src: Buffer.buffers[0].element});
+    // s2.init({src: Buffer.buffers[1].element});
+    // src(s1)
+    //     .modulate(s2, () => a.fft[0])
+    //     .blend(s0, () => a.fft[3]*4)
+    //     .modulate(s0,() => a.fft[3]*2)
+    //     .out();
+    if (patch) {
+        patches[patch]();
+    } else {
+        patches[1]();
+    }
+}
+
+const patches = {
+    1: () => {
     s0.initCam()
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
@@ -71,8 +88,16 @@ function reloadPatch() {
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
         .modulate(s0,() => a.fft[3]*2)
-
         .out();
+    },
+    2: () => {
+        s0.initCam()
+        s1.init({src: Buffer.buffers[0].element});
+        s2.init({src: Buffer.buffers[1].element});
+        src(s1)
+            .add(s2)
+            .out();
+    }   
 }
 
 // Add a function to toggle resolution
