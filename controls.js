@@ -12,7 +12,8 @@ class Controls {
     static midiAccess = null;
     static midiInputs = [];
     static midiEnabled = false;
-    static DEBUG = true;  // Debug flag - set to true to enable logging
+    static timeShiftInterval = 2
+    static DEBUG = false;  // Debug flag - set to true to enable logging
 
 
     static keyMapping = {
@@ -85,11 +86,19 @@ class Controls {
     static ccState = {};
 
     static midiCCMapping = {
-        37: (value) => {
+        42: (value) => {
             const pauseTime = Math.floor((value / 127) * 3999) + 1;
             setPauseTime(pauseTime);
         },
+        37: (value) => {    
+            //switch patch  
+            const patcharray = Object.keys(patches);
+            const nextPatch = Math.floor((value / 127) * patcharray.length) + 1;
+            console.log(nextPatch)
+            reloadPatch(nextPatch);
+        },
         38: (value) => {
+            //speed shift
             if (value < 54) {
                 const normalizedValue = value / 54;
                 const speed = 0.25 + (normalizedValue * 0.75);
@@ -103,6 +112,7 @@ class Controls {
             }
         },
         39: (value) => {
+            //time shift
             if (value < 54) {
                 const normalizedValue = value / 54;
                 const interval = Math.floor(1000 + normalizedValue * 4000);
@@ -118,19 +128,20 @@ class Controls {
             }
         },
         40: (value) => {
-            if (value < 54) {
-                const normalizedValue = value / 54;
-                const interval = Math.floor(4000 + normalizedValue * 21000);
-                Controls.switchFile('prev');
-                Controls.createAutoInterval('switch', () => Controls.switchFile('prev'), interval);
-            } else if (value > 74) {
-                const normalizedValue = (value - 74) / (127 - 74);
-                const interval = Math.floor(25000 - normalizedValue * 21000);
-                Controls.switchFile('next');
-                Controls.createAutoInterval('switch', () => Controls.switchFile('next'), interval);
-            } else {
-                Controls.clearAutoInterval('switch');
-            }
+            //time shift interval
+            const timeShiftIntervalRange = Math.floor((value / 127) * 9) + 1; // This gives range 1-10
+            Controls.timeShiftInterval = timeShiftIntervalRange;
+            console.log(Controls.timeShiftInterval);
+        },
+        41: (value) => {
+            //switch file 
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            const collection = focusedBuffer.currentCollection.items;
+            const nextFileIndex = Math.floor((value / 127) * (collection.length - 1));
+            console.log('MIDI value:', value, 'Next index:', nextFileIndex);
+            focusedBuffer.loadMedia(collection[nextFileIndex].url);
+            console.log(collection[nextFileIndex].url)
+            reloadActiveSource();
         }
     };
 
@@ -327,12 +338,12 @@ class Controls {
     
         switch(operation) {
             case 'forward':
-                element.currentTime = (element.currentTime + 2) % duration;
-                this.log(`Time shifted forward to ${element.currentTime.toFixed(2)}s`);
+                element.currentTime = (element.currentTime + this.timeShiftInterval) % duration;
+                this.log(`Time shifted forward to ${element.currentTime.toFixed(this.timeShiftInterval)}s`);
                 break;
             case 'backward':
-                element.currentTime = ((element.currentTime - 2) + duration) % duration;
-                this.log(`Time shifted backward to ${element.currentTime.toFixed(2)}s`);
+                element.currentTime = ((element.currentTime - this.timeShiftInterval) + duration) % duration;
+                this.log(`Time shifted backward to ${element.currentTime.toFixed(this.timeShiftInterval)}s`);
                 break;
             case 'reset':
                 element.currentTime = 0;    

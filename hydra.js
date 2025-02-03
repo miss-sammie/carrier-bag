@@ -81,13 +81,16 @@ function reloadPatch(patch) {
 
 const patches = {
     1: () => {
-    s0.initCam()
+    s0.initCam(0)
+    s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
     src(s1)
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
         .modulate(s0,() => a.fft[3]*2)
+        .modulate(s3,() => a.fft[2]*2)
+        .blend(s3,.5)
         .out();
     },
     2: () => {
@@ -97,7 +100,25 @@ const patches = {
         src(s1)
             .add(s2)
             .out();
-    }   
+    },
+    3: () => {
+        s1.init({src: Buffer.buffers[0].element});
+        src(s1)
+            .out();
+    },
+    4: () => {
+        s2.init({src: Buffer.buffers[1].element});
+        src(s2)
+            .out();
+    }
+    ,5: () => {
+        s0.initCam(5)
+        s1.initCam(0)
+
+        src(s0)
+            .modulate(s1)
+            .out();
+    }
 }
 
 // Add a function to toggle resolution
@@ -107,4 +128,4 @@ function toggleResolution() {
     reloadPatch();  // Reload the patch to update sources
 }
 
-export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution };
+export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches };
