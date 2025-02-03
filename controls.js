@@ -1,5 +1,5 @@
 import { Buffer } from './buffers.js';
-import { reloadPatch, reloadActiveSource } from './hydra.js';
+import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 
@@ -12,7 +12,7 @@ class Controls {
     static midiAccess = null;
     static midiInputs = [];
     static midiEnabled = false;
-    static DEBUG = false;  // Debug flag - set to true to enable logging
+    static DEBUG = true;  // Debug flag - set to true to enable logging
 
 
     static keyMapping = {
@@ -26,8 +26,8 @@ class Controls {
         'KeyA': () => Controls.timeShift('backward'),
         'KeyS': () => Controls.timeShift('forward'),
         'KeyD': () => Controls.timeShift('random'),
-        'KeyZ': () => Controls.speedShift('faster'),
-        'KeyX': () => Controls.speedShift('slower'),
+        'KeyX': () => Controls.speedShift('faster'),
+        'KeyZ': () => Controls.speedShift('slower'),
         'KeyC': () => Controls.speedShift('normal')
     
     };
@@ -82,25 +82,23 @@ class Controls {
             this.log(`Auto-${type} interval stopped`);
         }
     }
+    static ccState = {};
 
     static midiCCMapping = {
-        37: (value) => { // CC 1
+        37: (value) => {
             const pauseTime = Math.floor((value / 127) * 3999) + 1;
             setPauseTime(pauseTime);
         },
         38: (value) => {
             if (value < 54) {
-                // Map 0-54 to speeds between 0.25 and 1
                 const normalizedValue = value / 54;
-                const speed = 0.25 + (normalizedValue * 0.75); // 0.75 is the difference between 1 and 0.25
+                const speed = 0.25 + (normalizedValue * 0.75);
                 Controls.speedShift(speed);
             } else if (value > 74) {
-                // Map 74-127 to speeds between 1 and 8
                 const normalizedValue = (value - 74) / (127 - 74);
-                const speed = 1 + (normalizedValue * 7); // 7 is the difference between 8 and 1
+                const speed = 1 + (normalizedValue * 7);
                 Controls.speedShift(speed);
             } else {
-                // Center zone sets speed to 1
                 Controls.speedShift(1);
             }
         },
@@ -119,27 +117,21 @@ class Controls {
                 Controls.clearAutoInterval('time');
             }
         },
-        40: (function() {
-            let lastValue = null;
-            return (value) => {
-                if (value === lastValue) return;
-                lastValue = value;
-
-                if (value < 54) {
-                    const normalizedValue = value / 54;
-                    const interval = Math.floor(4000 + normalizedValue * 21000);
-                    Controls.switchFile('prev');
-                    Controls.createAutoInterval('switch', () => Controls.switchFile('prev'), interval);
-                } else if (value > 74) {
-                    const normalizedValue = (value - 74) / (127 - 74);
-                    const interval = Math.floor(25000 - normalizedValue * 21000);
-                    Controls.switchFile('next');
-                    Controls.createAutoInterval('switch', () => Controls.switchFile('next'), interval);
-                } else {
-                    Controls.clearAutoInterval('switch');
-                }
-            };
-        })()
+        40: (value) => {
+            if (value < 54) {
+                const normalizedValue = value / 54;
+                const interval = Math.floor(4000 + normalizedValue * 21000);
+                Controls.switchFile('prev');
+                Controls.createAutoInterval('switch', () => Controls.switchFile('prev'), interval);
+            } else if (value > 74) {
+                const normalizedValue = (value - 74) / (127 - 74);
+                const interval = Math.floor(25000 - normalizedValue * 21000);
+                Controls.switchFile('next');
+                Controls.createAutoInterval('switch', () => Controls.switchFile('next'), interval);
+            } else {
+                Controls.clearAutoInterval('switch');
+            }
+        }
     };
 
 
@@ -204,15 +196,31 @@ class Controls {
 
     static handleMIDIMessage(message) {
         const [status, note, velocity] = message.data;
+        
         if (status === 144 && velocity > 0) { // Note on
             const handler = Controls.midiMapping[note];
             if (handler) {
                 handler();
             }
         } else if (status === 176) { // Control Change (CC)
-            const handler = Controls.midiCCMapping[note];
-            if (handler) {
-                handler(velocity);
+            // Create static object to store last values and timeouts for each CC
+            Controls.ccState = Controls.ccState || {};
+            Controls.ccState[note] = Controls.ccState[note] || { lastValue: null, timeout: null };
+            
+            // If value has changed, reset the timeout
+            if (velocity !== Controls.ccState[note].lastValue) {
+                Controls.ccState[note].lastValue = velocity;
+                if (Controls.ccState[note].timeout) {
+                    clearTimeout(Controls.ccState[note].timeout);
+                }
+                
+                // Start a new timeout
+                Controls.ccState[note].timeout = setTimeout(() => {
+                    const handler = Controls.midiCCMapping[note];
+                    if (handler) {
+                        handler(velocity);
+                    }
+                }, 150);
             }
         }
     }
@@ -315,7 +323,7 @@ class Controls {
         }
     
         // Store whether the element was playing before the time shift
-        const wasPlaying = !element.paused;
+       // const wasPlaying = !element.paused;
     
         switch(operation) {
             case 'forward':
@@ -391,6 +399,10 @@ class Controls {
         if (window.sidebar) {
             window.sidebar.update();
         }
+    }
+
+    static switchPatch(patch) {
+        reloadPatch(patch);
     }
 
     static togglePlay(element) {
