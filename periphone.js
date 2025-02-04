@@ -31,8 +31,8 @@ await loadLibrary()
             if (getCollection('Videos')?.items.length > 0) {
                 Buffer.buffers[0].setCollection('Videos');
             }
-            if (getCollection('Images')?.items.length > 0) {
-                Buffer.buffers[1].setCollection('Images');
+            if (getCollection('Videos')?.items.length > 0) {
+                Buffer.buffers[1].setCollection('Videos');
             }
         } catch (error) {
             console.warn('Failed to set initial collections:', error);
@@ -42,20 +42,9 @@ await loadLibrary()
         Controls.init();
         Controls.initializeMIDI();
 
-        // Only try to load media if collections are set
-        try {
-            if (Buffer.buffers[0].currentCollection?.items.length > 0) {
-                await Buffer.buffers[0].loadMedia(Buffer.buffers[0].currentCollection.items[0].url);
-            }
-            if (Buffer.buffers[1].currentCollection?.items.length > 0) {
-                await Buffer.buffers[1].loadMedia(Buffer.buffers[1].currentCollection.items[0].url);
-            }
-        } catch (error) {
-            console.warn('Failed to load initial media:', error);
-        }
 
         const hydra = initHydra();
-        reloadPatch();
+        reloadPatch(2);
 
         setTimeout(() => {
             // Use requestAnimationFrame for smoother updates

@@ -309,8 +309,14 @@ class Controls {
 
         try {
             focusedBuffer.currentIndex = newIndex;
-            await focusedBuffer.loadMedia(collection[newIndex].url);
-            reloadActiveSource();
+            const newElement = await focusedBuffer.loadMedia(collection[newIndex].url);
+            
+            // Only reload source if we got a valid element back
+            if (newElement) {
+                // Give a small delay to ensure the video is ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+                reloadActiveSource();
+            }
         } catch (error) {
             console.error('Failed to load media:', error);
         }
@@ -334,7 +340,7 @@ class Controls {
         }
     
         // Store whether the element was playing before the time shift
-       // const wasPlaying = !element.paused;
+        const wasPlaying = !element.paused;
     
         switch(operation) {
             case 'forward':
@@ -358,11 +364,10 @@ class Controls {
                 return;
         }
 
-        // Resume playback if it was playing before
-      //  if (wasPlaying) {
-            element.play()
-            //.catch(e => this.warn('Could not resume playback:', e));
-      //  }
+        // Only resume playback if it was playing before
+        if (wasPlaying && element.paused) {
+            element.play().catch(e => this.warn('Could not resume playback:', e));
+        }
 
         // Reload Hydra source to reflect the changes
         reloadActiveSource();

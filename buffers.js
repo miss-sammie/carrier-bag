@@ -61,6 +61,16 @@ class Buffer {
             throw new Error(`Media not found in library: ${url}`);
         }
 
+        // Clean up old element first
+        if (this.element) {
+            if (this.element.tagName === 'VIDEO' || this.element.tagName === 'AUDIO') {
+                this.element.pause();
+                this.element.src = '';
+                this.element.load();
+            }
+            this.element = null;
+        }
+
         // Create appropriate element
         let newElement;
         switch (mediaObj.type) {
@@ -72,11 +82,9 @@ class Buffer {
 
             case 'video':
                 newElement = document.createElement('video');
-                newElement.src = url;
                 newElement.loop = true;
                 newElement.muted = true;
-                newElement.autoplay = true;
-                newElement.play()
+                newElement.src = url;
                 this.filetype = 'video';
                 break;
 
@@ -102,13 +110,10 @@ class Buffer {
                 }
             });
 
-            // Only remove old element and update if new one loaded successfully
-            if (this.element && this.element.parentNode) {
-                this.element.parentNode.removeChild(this.element);
-            }
-
             this.element = newElement;
-          //  this.updateUI();
+            if (this.filetype === 'video' || this.filetype === 'audio') {
+                newElement.play();
+            }
 
             return this.element;
         } catch (error) {
