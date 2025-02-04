@@ -52,13 +52,17 @@ function reloadActiveSource() {
     const focusedBuffer = Buffer.buffers.find(b => b.focus);
     if (!focusedBuffer || !focusedBuffer.element) return;
 
-    switch(focusedBuffer.slot) {
-        case 0:
-            s1.init({src: focusedBuffer.element});
-            break;
-        case 1:
-            s2.init({src: focusedBuffer.element});
-            break;
+    // Only reload if the source has changed
+    const source = focusedBuffer.slot === 0 ? s1 : s2;
+    if (source && source.src !== focusedBuffer.element) {
+        switch(focusedBuffer.slot) {
+            case 0:
+                s1.init({src: focusedBuffer.element});
+                break;
+            case 1:
+                s2.init({src: focusedBuffer.element});
+                break;
+        }
     }
 }
 
@@ -71,6 +75,8 @@ function reloadPatch(patch) {
     //     .modulate(s2, () => a.fft[0])
     //     .blend(s0, () => a.fft[3]*4)
     //     .modulate(s0,() => a.fft[3]*2)
+    //     .modulate(s3,() => a.fft[2]*2)
+    //     .blend(s3,.5)
     //     .out();
     if (patch) {
         patches[patch]();
@@ -82,15 +88,15 @@ function reloadPatch(patch) {
 const patches = {
     1: () => {
     s0.initCam(0)
-    s3.initCam(5)
+    //s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
     src(s1)
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
         .modulate(s0,() => a.fft[3]*2)
-        .modulate(s3,() => a.fft[2]*2)
-        .blend(s3,.5)
+       // .modulate(s3,() => a.fft[2]*2)
+       // .blend(s3,.5)
         .out();
     },
     2: () => {

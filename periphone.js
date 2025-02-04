@@ -29,10 +29,8 @@ await loadLibrary()
         // Then set collections if they exist
         try {
             if (getCollection('Videos')?.items.length > 0) {
-                Buffer.buffers[0].setCollection('Videos');
-            }
-            if (getCollection('Videos')?.items.length > 0) {
-                Buffer.buffers[1].setCollection('Videos');
+                await Buffer.buffers[0].setCollection('Videos');
+                await Buffer.buffers[1].setCollection('Videos');
             }
         } catch (error) {
             console.warn('Failed to set initial collections:', error);
