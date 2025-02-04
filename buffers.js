@@ -84,12 +84,14 @@ class Buffer {
                 newElement = document.createElement('video');
                 newElement.loop = true;
                 newElement.muted = true;
+                newElement.preload = 'auto';
                 newElement.src = url;
                 this.filetype = 'video';
                 break;
 
             case 'audio':
                 newElement = document.createElement('audio');
+                newElement.preload = 'auto';
                 newElement.src = url;
                 this.filetype = 'audio';
                 break;
@@ -111,8 +113,14 @@ class Buffer {
             });
 
             this.element = newElement;
+            
+            // Start playing immediately for time-based media
             if (this.filetype === 'video' || this.filetype === 'audio') {
-                newElement.play();
+                try {
+                    await newElement.play();
+                } catch (e) {
+                    console.warn('Autoplay prevented:', e);
+                }
             }
 
             return this.element;
