@@ -301,22 +301,13 @@ class Controls {
                 newIndex = (focusedBuffer.currentIndex - 1 + length) % length;
                 break;
             case 'random':
-                do {
-                    newIndex = Math.floor(Math.random() * length);
-                } while (length > 1 && newIndex === focusedBuffer.currentIndex);
+                newIndex = Math.floor(Math.random() * length);
                 break;
         }
 
         try {
             focusedBuffer.currentIndex = newIndex;
-            const newElement = await focusedBuffer.loadMedia(collection[newIndex].url);
-            
-            // Only reload source if we got a valid element back
-            if (newElement) {
-                // Give a small delay to ensure the video is ready
-                await new Promise(resolve => setTimeout(resolve, 100));
-                reloadActiveSource();
-            }
+            focusedBuffer.loadMedia(collection[newIndex].url);
         } catch (error) {
             console.error('Failed to load media:', error);
         }
@@ -339,38 +330,23 @@ class Controls {
             return;
         }
     
-        // Store whether the element was playing before the time shift
-        const wasPlaying = !element.paused;
-    
         switch(operation) {
             case 'forward':
                 element.currentTime = (element.currentTime + this.timeShiftInterval) % duration;
-                this.log(`Time shifted forward to ${element.currentTime.toFixed(this.timeShiftInterval)}s`);
                 break;
             case 'backward':
                 element.currentTime = ((element.currentTime - this.timeShiftInterval) + duration) % duration;
-                this.log(`Time shifted backward to ${element.currentTime.toFixed(this.timeShiftInterval)}s`);
                 break;
             case 'reset':
                 element.currentTime = 0;    
-                this.log(`Time reset to 0`);
                 break;
             case 'random':
-                element.currentTime = Math.random() * duration;
-                this.log(`Time shifted to random position: ${element.currentTime.toFixed(2)}s`);
+                element.currentTime = Math.floor(Math.random() * duration);
                 break;
             default:
                 this.warn(`Invalid time shift operation: ${operation}`);
                 return;
         }
-
-        // Only resume playback if it was playing before
-        if (wasPlaying && element.paused) {
-            element.play().catch(e => this.warn('Could not resume playback:', e));
-        }
-
-        // Reload Hydra source to reflect the changes
-        reloadActiveSource();
     }
 
     static speedShift(speed) {

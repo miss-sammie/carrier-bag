@@ -16,8 +16,8 @@ window.Buffer = Buffer;
 window.Controls = Controls;
 
 // Initialize sidebar
-const sidebar = new Sidebar();
-window.sidebar = sidebar;
+//const sidebar = new Sidebar();
+//window.sidebar = sidebar;
 
 
 
@@ -61,11 +61,12 @@ await loadLibrary()
         
 
         // Update sidebar with loaded data
-        sidebar.update();
+        //sidebar.update();
     })
     .catch(error => {
         console.error("Error in main:", error);
     });
+
 
 
 

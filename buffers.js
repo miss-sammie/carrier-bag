@@ -1,5 +1,5 @@
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
-import { reloadPatch } from './hydra.js';
+import { reloadPatch, reloadActiveSource } from './hydra.js';
 import { Controls } from './controls.js';
 
 
@@ -55,72 +55,79 @@ class Buffer {
     }
 
     async loadMedia(url) {
-        // Create new element based on media type
+        // Find media object
         const mediaObj = this.currentCollection.items.find(m => m.url === url);
         if (!mediaObj) {
             throw new Error(`Media not found in library: ${url}`);
         }
 
-        // Clean up old element first
-        if (this.element) {
-            if (this.element.tagName === 'VIDEO' || this.element.tagName === 'AUDIO') {
-                this.element.pause();
-                this.element.src = '';
-                this.element.load();
-            }
-            this.element = null;
-        }
-
-        // Create appropriate element
-        let newElement;
-        switch (mediaObj.type) {
-            case 'image':
-                newElement = document.createElement('img');
-                newElement.src = url;
-                this.filetype = 'image';
-                break;
-
-            case 'video':
-                newElement = document.createElement('video');
-                newElement.loop = true;
-                newElement.muted = true;
-                newElement.preload = 'auto';
-                newElement.src = url;
-                this.filetype = 'video';
-                break;
-
-            case 'audio':
-                newElement = document.createElement('audio');
-                newElement.preload = 'auto';
-                newElement.src = url;
-                this.filetype = 'audio';
-                break;
-
-            default:
-                throw new Error(`Unsupported media type: ${mediaObj.type}`);
-        }
-
         try {
-            // Wait for the new element to be ready
-            await new Promise((resolve, reject) => {
-                if (mediaObj.type === 'image') {
-                    newElement.onload = resolve;
-                    newElement.onerror = reject;
-                } else {
-                    newElement.onloadeddata = resolve;
-                    newElement.onerror = reject;
-                }
-            });
+            let needNewElement = false;
+            
+            // Check if we need to create a new element
+            if (!this.element) {
+                needNewElement = true;
+            } else {
+                // Check if we need a different type of element
+                const currentTag = this.element.tagName.toLowerCase();
+                const needsTag = mediaObj.type === 'video' ? 'video' : 
+                               mediaObj.type === 'audio' ? 'audio' : 'img';
+                needNewElement = currentTag !== needsTag;
+            }
 
-            this.element = newElement;
+            // If we need a new element, create it
+            if (needNewElement) {
+                // Clean up old element if it exists
+                if (this.element) {
+                    if (this.element.tagName === 'VIDEO' || this.element.tagName === 'AUDIO') {
+                        this.element.pause();
+                        this.element.src = '';
+                    }
+                    this.element = null;
+                }
+
+                // Create appropriate element
+                switch (mediaObj.type) {
+                    case 'image':
+                        this.element = document.createElement('img');
+                        this.filetype = 'image';
+                        break;
+
+                    case 'video':
+                        this.element = document.createElement('video');
+                        this.element.loop = true;
+                        this.element.muted = true;
+                        this.filetype = 'video';
+                        break;
+
+                    case 'audio':
+                        this.element = document.createElement('audio');
+                        this.element.preload = 'auto';
+                        this.filetype = 'audio';
+                        break;
+
+                    default:
+                        throw new Error(`Unsupported media type: ${mediaObj.type}`);
+                }
+
+                // Only reload Hydra source if we created a new element and this buffer is focused
+                if (this.focus) {
+                    reloadActiveSource();
+                }
+            } else {
+                // If reusing element, pause if it's a media element
+                if (this.filetype === 'video' || this.filetype === 'audio') {
+                    this.element.pause();
+                }
+            }
+
+            // Update the source
+            this.element.src = url;
             
             // Start playing immediately for time-based media
             if (this.filetype === 'video' || this.filetype === 'audio') {
-                try {
-                    await newElement.play();
-                } catch (e) {
-                    console.warn('Autoplay prevented:', e);
-                }
+                this.element.currentTime = 0;
+                this.element.play();
             }
 
             return this.element;

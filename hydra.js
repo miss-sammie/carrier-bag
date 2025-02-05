@@ -91,6 +91,7 @@ const patches = {
     //s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
+    
     src(s1)
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
