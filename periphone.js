@@ -14,10 +14,11 @@ console.log("Buffers initialized");
 
 window.Buffer = Buffer;
 window.Controls = Controls;
+window.reloadPatch = reloadPatch;
 
 // Initialize sidebar
-//const sidebar = new Sidebar();
-//window.sidebar = sidebar;
+const sidebar = new Sidebar();
+window.sidebar = sidebar;
 
 
 
@@ -42,7 +43,7 @@ await loadLibrary()
 
 
         const hydra = initHydra();
-        reloadPatch(2);
+        reloadPatch(1);
 
         setTimeout(() => {
             // Use requestAnimationFrame for smoother updates
@@ -61,7 +62,7 @@ await loadLibrary()
         
 
         // Update sidebar with loaded data
-        //sidebar.update();
+        sidebar.update();
     })
     .catch(error => {
         console.error("Error in main:", error);

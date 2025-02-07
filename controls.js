@@ -1,5 +1,5 @@
 import { Buffer } from './buffers.js';
-import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
+import { reloadPatch, reloadActiveSource, patches, switchCam } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection } from './media.js';
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 
@@ -29,7 +29,8 @@ class Controls {
         'KeyD': () => Controls.timeShift('random'),
         'KeyX': () => Controls.speedShift('faster'),
         'KeyZ': () => Controls.speedShift('slower'),
-        'KeyC': () => Controls.speedShift('normal')
+        'KeyC': () => Controls.speedShift('normal'),
+        'KeyV': () => switchCam()
     
     };
 

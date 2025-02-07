@@ -1,5 +1,7 @@
 // Initialize Hydra
 let resolutionMode = "high"  
+const webcams = [0,5]
+let currentCam = 0
 
 function initHydra() {
     // Check for existing canvas
@@ -66,6 +68,11 @@ function reloadActiveSource() {
     }
 }
 
+function switchCam() {
+    currentCam = (currentCam + 1) % webcams.length
+    s0.initCam(webcams[currentCam])
+}
+
 // Reload entire patch
 function reloadPatch(patch) {
     // s0.initCam()
@@ -85,9 +92,11 @@ function reloadPatch(patch) {
     }
 }
 
+
+
 const patches = {
     1: () => {
-    s0.initCam(0)
+    s0.initCam(currentCam)
     //s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
@@ -101,7 +110,7 @@ const patches = {
         .out();
     },
     2: () => {
-        s0.initCam()
+        s0.initCam(currentCam)
         s1.init({src: Buffer.buffers[0].element});
         s2.init({src: Buffer.buffers[1].element});
         src(s1)
@@ -119,8 +128,8 @@ const patches = {
             .out();
     }
     ,5: () => {
-        s0.initCam(5)
-        s1.initCam(0)
+        s0.initCam(currentCam +1 % cameras.length)
+        s1.initCam(currentCam)
 
         src(s0)
             .modulate(s1)
@@ -135,4 +144,4 @@ function toggleResolution() {
     reloadPatch();  // Reload the patch to update sources
 }
 
-export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches };
+export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches, switchCam };
