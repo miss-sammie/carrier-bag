@@ -305,12 +305,10 @@ class Controls {
                 break;
         }
 
-        try {
             focusedBuffer.currentIndex = newIndex;
             focusedBuffer.loadMedia(collection[newIndex].url);
-        } catch (error) {
-            console.error('Failed to load media:', error);
-        }
+            
+        
     }
 
     
