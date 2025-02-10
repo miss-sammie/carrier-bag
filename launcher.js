@@ -1,5 +1,5 @@
 console.log("Starting carrier bag...");
-import { frequencyToLetter, initializeTextOverlay, postText } from './sheSpeaks.js'
+import { frequencyToLetter, initializeTextOverlay, postText, initBabbler } from './sheSpeaks.js'
 import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
@@ -17,10 +17,8 @@ window.Controls = Controls;
 window.reloadPatch = reloadPatch;
 
 // Initialize sidebar
-const sidebar = new Sidebar();
-window.sidebar = sidebar;
-
-
+//const sidebar = new Sidebar();
+//window.sidebar = sidebar;
 
 console.log("About to load library...");
 await loadLibrary()
@@ -41,32 +39,20 @@ await loadLibrary()
         Controls.init();
         Controls.initializeMIDI();
 
-
         const hydra = initHydra();
-        reloadPatch(6);
+        reloadPatch(1);
 
-        setTimeout(() => {
-            // Use requestAnimationFrame for smoother updates
-            function update() {
-                const fftData = a.fft;
-                if (fftData) {
-                    frequencyToLetter(fftData);
-                    
-                }
-                requestAnimationFrame(update);
-            }
-            update();
-        }, 2000); // Wait 1 second for initialization
+        // Initialize babbler with popup mode
+        initBabbler('popup');
 
-        initializeTextOverlay();
-        
 
         // Update sidebar with loaded data
-        sidebar.update();
+        //sidebar.update();
     })
     .catch(error => {
         console.error("Error in main:", error);
     });
+
 
 
 

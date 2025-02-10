@@ -19,7 +19,43 @@ let popupWindow = null;
 let displayMode = 'overlay';
 const MAX_OVERLAY_TEXTS = 10;
 
+// Add initialization function
+export function initBabbler(mode = 'overlay') {
+    // Set initial display mode based on parameter
+    switch(mode) {
+        case 'overlay':
+            displayMode = 'overlay';
+            initializeTextOverlay();
+            break;
+        case 'popup':
+            displayMode = 'popup';
+            createPopupWindow();
+            break;
+        case 'both':
+            displayMode = 'both';
+            initializeTextOverlay();
+            createPopupWindow();
+            break;
+        case 'none':
+            displayMode = 'none';
+            break;
+    }
 
+    // Load lexicon
+    loadLexicon();
+
+    // Start the FFT update loop
+    setTimeout(() => {
+        function update() {
+            const fftData = a.fft;
+            if (fftData) {
+                frequencyToLetter(fftData);
+            }
+            requestAnimationFrame(update);
+        }
+        update();
+    }, 2000);
+}
 
 // Add the control functions
 export function setDisplayMode(mode) {
@@ -27,26 +63,51 @@ export function setDisplayMode(mode) {
     
     displayMode = mode;
     
-    if (mode === 'popup') {
-        // Hide overlay if it exists
-        const container = document.getElementById('textOverlayContainer');
-        if (container) {
-            container.style.display = 'none';
-        }
-        // Create popup if it doesn't exist
-        if (!popupWindow || popupWindow.closed) {
-            createPopupWindow();
-        }
-    } else {
-        // Close popup if it exists
-        if (popupWindow && !popupWindow.closed) {
-            popupWindow.close();
-        }
-        // Show overlay
-        const container = document.getElementById('textOverlayContainer');
-        if (container) {
-            container.style.display = 'flex';
-        }
+    const container = document.getElementById('textOverlayContainer');
+    
+    switch(mode) {
+        case 'popup':
+            // Hide overlay
+            if (container) {
+                container.style.display = 'none';
+            }
+            // Create popup if needed
+            if (!popupWindow || popupWindow.closed) {
+                createPopupWindow();
+            }
+            break;
+            
+        case 'overlay':
+            // Close popup
+            if (popupWindow && !popupWindow.closed) {
+                popupWindow.close();
+            }
+            // Show overlay
+            if (container) {
+                container.style.display = 'flex';
+            }
+            break;
+            
+        case 'both':
+            // Show overlay
+            if (container) {
+                container.style.display = 'flex';
+            }
+            // Create popup if needed
+            if (!popupWindow || popupWindow.closed) {
+                createPopupWindow();
+            }
+            break;
+            
+        case 'none':
+            // Hide both
+            if (container) {
+                container.style.display = 'none';
+            }
+            if (popupWindow && !popupWindow.closed) {
+                popupWindow.close();
+            }
+            break;
     }
 }
 
@@ -224,8 +285,8 @@ function postText(text) {
         });
     }
     
-    if (displayMode === 'overlay' && overlayVisible) {
-        // Update overlay
+    // Update overlay if visible
+    if ((displayMode === 'overlay' || displayMode === 'both') && overlayVisible) {
         textOverlayArray.shift().remove();
         const newText = document.createElement('div');
         newText.style.cssText = `
@@ -237,27 +298,31 @@ function postText(text) {
         newText.innerHTML = displayText;
         textOverlayArray.push(newText);
         document.getElementById('textOverlayContainer').appendChild(newText);
-    } else if (displayMode === 'popup' && popupWindow && !popupWindow.closed) {
-        // Update popup
+    }
+    
+    // Update popup if it exists
+    if ((displayMode === 'popup' || displayMode === 'both') && popupWindow && !popupWindow.closed) {
         const container = popupWindow.document.querySelector('.text-container');
-        const textElement = popupWindow.document.createElement('div');
-        textElement.className = 'text-item';
-        textElement.innerHTML = displayText;
-        
-        // Insert at the beginning to maintain bottom-to-top order
-        if (container.firstChild) {
-            container.insertBefore(textElement, container.firstChild);
-        } else {
-            container.appendChild(textElement);
+        if (container) {
+            const textElement = popupWindow.document.createElement('div');
+            textElement.className = 'text-item';
+            textElement.innerHTML = displayText;
+            
+            // Insert at the beginning to maintain bottom-to-top order
+            if (container.firstChild) {
+                container.insertBefore(textElement, container.firstChild);
+            } else {
+                container.appendChild(textElement);
+            }
+            
+            // Remove old texts if too many
+            while (container.children.length > MAX_OVERLAY_TEXTS) {
+                container.removeChild(container.lastChild);
+            }
+            
+            // Scroll to top (where new text appears)
+            popupWindow.scrollTo(0, 0);
         }
-        
-        // Remove old texts if too many
-        while (container.children.length > MAX_OVERLAY_TEXTS) {
-            container.removeChild(container.lastChild);
-        }
-        
-        // Scroll to bottom
-        popupWindow.scrollTo(0, 0);
     }
     
     // Log to console if enabled
