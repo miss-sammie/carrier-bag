@@ -1,4 +1,4 @@
-console.log("Starting periphone.js");
+console.log("Starting carrier bag...");
 import { frequencyToLetter, initializeTextOverlay, postText } from './sheSpeaks.js'
 import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
