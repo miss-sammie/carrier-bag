@@ -15,11 +15,86 @@ let consoleEnabled = true;
 let pauseTime = 4000;
 let lexicon = new Set();
 let textOverlayArray = [];
+let popupWindow = null;
+let displayMode = 'overlay';
 const MAX_OVERLAY_TEXTS = 10;
 
 
 
 // Add the control functions
+export function setDisplayMode(mode) {
+    if (mode === displayMode) return;
+    
+    displayMode = mode;
+    
+    if (mode === 'popup') {
+        // Hide overlay if it exists
+        const container = document.getElementById('textOverlayContainer');
+        if (container) {
+            container.style.display = 'none';
+        }
+        // Create popup if it doesn't exist
+        if (!popupWindow || popupWindow.closed) {
+            createPopupWindow();
+        }
+    } else {
+        // Close popup if it exists
+        if (popupWindow && !popupWindow.closed) {
+            popupWindow.close();
+        }
+        // Show overlay
+        const container = document.getElementById('textOverlayContainer');
+        if (container) {
+            container.style.display = 'flex';
+        }
+    }
+}
+
+function createPopupWindow() {
+    const width = 600;
+    const height = 800;
+    const left = window.screen.width - width;
+    const top = 0;
+    
+    popupWindow = window.open('', 'TextWindow', 
+        `width=${width},height=${height},left=${left},top=${top}`);
+    
+    // Add styles and container to popup
+    popupWindow.document.head.innerHTML = `
+        <style>
+            body {
+                margin: 0;
+                padding: 20px;
+                background: white;
+                color: black;
+                font-family: monospace;
+                font-size: 72px;
+                overflow-y: auto;
+                height: 100vh;
+                box-sizing: border-box;
+            }
+            .text-container {
+                display: flex;
+                flex-direction: column-reverse;
+                justify-content: flex-start;
+                min-height: 100%;
+                gap: 10px;
+            }
+            .text-item {
+                word-wrap: break-word;
+            }
+            .highlight {
+                color: red;
+                font-weight: bold;
+                font-size: 130%;
+                margin: 0 0.2em;
+            }
+        </style>
+    `;
+    
+    popupWindow.document.body.innerHTML = '<div class="text-container"></div>';
+}
+
 export function toggleOverlay() {
     overlayVisible = !overlayVisible;
     const container = document.getElementById('textOverlayContainer');
@@ -128,30 +203,30 @@ function initializeTextOverlay() {
     }
 }
 
-// Modify postText to update the overlay
+// Modify postText to handle both overlay and popup modes
 function postText(text) {
     pausing = false;
     
-    // Find words and create highlighted version for overlay
+    // Find words and create highlighted version
     const foundWords = findWordsInText(text);
     let displayText = text;
     
-    if (overlayVisible) {
-        if (foundWords.length > 0) {
-            // Sort words from last to first to maintain indices
-            foundWords.sort((a, b) => b.start - a.start);
-            
-            // Create highlighted version for overlay
-            foundWords.forEach(({word, start, end}) => {
-                const before = displayText.slice(0, start);
-                const highlighted = displayText.slice(start, end);
-                const after = displayText.slice(end);
-                displayText = `${before}<span style="color: red; font-weight: bold; font-size: 130%; margin: 0 0.2em">${highlighted}</span>${after}`;
-            });
-        }
+    if (foundWords.length > 0) {
+        // Sort words from last to first to maintain indices
+        foundWords.sort((a, b) => b.start - a.start);
         
-        // Update text overlay
-        textOverlayArray.shift().remove(); // Remove first element
+        // Create highlighted version
+        foundWords.forEach(({word, start, end}) => {
+            const before = displayText.slice(0, start);
+            const highlighted = displayText.slice(start, end);
+            const after = displayText.slice(end);
+            displayText = `${before}<span class="highlight">${highlighted}</span>${after}`;
+        });
+    }
+    
+    if (displayMode === 'overlay' && overlayVisible) {
+        // Update overlay
+        textOverlayArray.shift().remove();
         const newText = document.createElement('div');
         newText.style.cssText = `
             transition: transform 0.5s ease;
@@ -162,9 +237,30 @@ function postText(text) {
         newText.innerHTML = displayText;
         textOverlayArray.push(newText);
         document.getElementById('textOverlayContainer').appendChild(newText);
+    } else if (displayMode === 'popup' && popupWindow && !popupWindow.closed) {
+        // Update popup
+        const container = popupWindow.document.querySelector('.text-container');
+        const textElement = popupWindow.document.createElement('div');
+        textElement.className = 'text-item';
+        textElement.innerHTML = displayText;
+        
+        // Insert at the beginning to maintain bottom-to-top order
+        if (container.firstChild) {
+            container.insertBefore(textElement, container.firstChild);
+        } else {
+            container.appendChild(textElement);
+        }
+        
+        // Remove old texts if too many
+        while (container.children.length > MAX_OVERLAY_TEXTS) {
+            container.removeChild(container.lastChild);
+        }
+        
+        // Scroll to bottom
+        popupWindow.scrollTo(0, 0);
     }
     
-    // Only log to console if consoleEnabled is true
+    // Log to console if enabled
     if (consoleEnabled) {
         if (foundWords.length > 0) {
             let highlightedText = text;
@@ -188,7 +284,7 @@ function postText(text) {
     letterCount = 0;
     nextText = '';  
     sendCount = Math.floor(Math.random() * 23) + 1;
-    pause = pauseTime;  // Use the configurable pauseTime instead of hardcoded value
+    pause = pauseTime;
 }
 
 // Call initializeTextOverlay when the script starts
@@ -246,10 +342,11 @@ function frequencyToLetter(fftData) {
             caps = false
         }
 
-        //console.log(amplitude, index)
+       // setInterval(() => console.log(fftData), 3000)
+        //setInterval(() => console.log(amplitude, index), 3000)
         
         
-        
+
         if (letterCount === sendCount && !pausing) {
             pausing = true
             setTimeout(() => postText(nextText), pause);

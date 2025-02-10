@@ -43,7 +43,7 @@ await loadLibrary()
 
 
         const hydra = initHydra();
-        reloadPatch(1);
+        reloadPatch(6);
 
         setTimeout(() => {
             // Use requestAnimationFrame for smoother updates

@@ -1,6 +1,6 @@
 import { mediaLibrary, collections } from './media.js';
 import { Buffer } from './buffers.js';
-import { toggleOverlay, toggleConsole, setPauseTime } from './sheSpeaks.js';
+import { toggleOverlay, toggleConsole, setPauseTime, setDisplayMode } from './sheSpeaks.js';
 import { Controls } from './controls.js';
 
 export class Sidebar {
@@ -193,6 +193,24 @@ export class Sidebar {
                 font-size: 12px;
                 color: #333;
             }
+
+            .radio-group {
+                margin-bottom: 8px;
+                display: block;
+                color: #333;
+            }
+            .radio-option {
+                margin: 4px 0;
+                display: flex;
+                align-items: center;
+            }
+            .radio-option input[type="radio"] {
+                margin-right: 8px;
+            }
+            .radio-option label {
+                color: #333;
+                font-size: 14px;
+            }
         `;
         document.head.appendChild(style);
 
@@ -242,9 +260,20 @@ export class Sidebar {
                 <div class="section-content">
                     <div class="control-group">
                         <label class="toggle">
-                            <input type="checkbox" id="overlay-toggle" checked>
-                            <span class="label">Overlay</span>
+                            <input type="checkbox" id="text-toggle" checked>
+                            <span class="label">Enable Text</span>
                         </label>
+                    </div>
+                    <div class="control-group">
+                        <label class="radio-group">Display Mode:</label>
+                        <div class="radio-option">
+                            <input type="radio" id="mode-overlay" name="display-mode" value="overlay" checked>
+                            <label for="mode-overlay">Overlay</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="mode-popup" name="display-mode" value="popup">
+                            <label for="mode-popup">Popup Window</label>
+                        </div>
                     </div>
                     <div class="control-group">
                         <label class="toggle">
@@ -270,10 +299,11 @@ export class Sidebar {
         document.body.appendChild(this.element);
 
         // Add event listeners
-        const overlayToggle = document.getElementById('overlay-toggle');
+        const overlayToggle = document.getElementById('text-toggle');
         const consoleToggle = document.getElementById('console-toggle');
         const pauseTimeInput = document.getElementById('pause-time');
         const speedValue = pauseTimeInput.nextElementSibling;
+        const displayModeInputs = document.querySelectorAll('input[name="display-mode"]');
 
         overlayToggle.addEventListener('change', () => {
             toggleOverlay();
@@ -287,6 +317,12 @@ export class Sidebar {
             const value = parseInt(e.target.value);
             speedValue.textContent = `${value}ms`;
             setPauseTime(value);
+        });
+
+        displayModeInputs.forEach(input => {
+            input.addEventListener('change', (e) => {
+                setDisplayMode(e.target.value);
+            });
         });
     }
 
@@ -437,6 +473,7 @@ export class Sidebar {
     }
 
     update() {
+        if (!this.visible) return;
         // Update libraries content
         const librariesContent = this.element.querySelector('.section:first-child .section-content');
         librariesContent.innerHTML = this.renderLibraries();
