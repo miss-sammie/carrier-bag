@@ -1,8 +1,8 @@
 // Initialize Hydra
 let resolutionMode = "high"  
-const webcams = [0,5]
+const webcams = [0,5,6]
 let currentCam = 0
-let currentPatch = 0
+let currentPatch = 1
 
 function initHydra() {
     // Check for existing canvas
@@ -71,8 +71,8 @@ function reloadActiveSource() {
 
 function switchCam() {
     currentCam = (currentCam + 1) % webcams.length
-    console.log(currentCam)
     reloadPatch(currentPatch)
+    console.log("switching cam", currentCam, webcams[currentCam])
    // s0.initCam(webcams[currentCam])
 }
 
@@ -97,12 +97,21 @@ function reloadPatch(patch) {
     }
 }
 
+function switchPatch() {
+    const numPatches = Object.keys(patches).length;
+    currentPatch = (currentPatch % numPatches) + 1;  
+    reloadPatch(currentPatch);
+    console.log("reloading patch", currentPatch);
+}
+
+
 
 
 const patches = {
     1: () => {
+    s0.clear()
     s0.initCam(webcams[currentCam])
-    //s3.initCam(5)
+  //  s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
     
@@ -110,15 +119,17 @@ const patches = {
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
         .modulate(s0,() => a.fft[3]*2)
-       // .modulate(s3,() => a.fft[2]*2)
-       // .blend(s3,.5)
+      //  .modulate(s3,() => a.fft[2]*2)
+    //    .blend(s3)
         .out();
     },
     2: () => {
-        s0.initCam(currentCam)
+        s0.clear()
+        s0.initCam(webcams[currentCam])
         s1.init({src: Buffer.buffers[0].element});
         s2.init({src: Buffer.buffers[1].element});
         src(s1)
+            .modulate(s0)
             .add(s2)
             .out();
     },
@@ -131,14 +142,23 @@ const patches = {
         s2.init({src: Buffer.buffers[1].element});
         src(s2)
             .out();
-    }
-    ,5: () => {
+    },
+    5: () => {
+        s0.clear()
+        s1.clear()
         s0.initCam(webcams[currentCam])
-        s1.initCam(webcams[currentCam +1 % webcams.length])
+        const nextCamIndex = (currentCam + 1) % webcams.length;
+        s1.initCam(webcams[nextCamIndex])
 
         src(s0)
-            .modulate(s1)
+            .blend(s1)
             .out();
+    },
+    6: () => {
+        s0.clear()
+        s0.initCam(webcams[currentCam])
+        src(s0)
+        .out()
     }
 }
 
@@ -149,4 +169,4 @@ function toggleResolution() {
     reloadPatch();  // Reload the patch to update sources
 }
 
-export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches, currentCam, webcams, switchCam };
+export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches, currentCam, webcams, switchCam, currentPatch, switchPatch };
