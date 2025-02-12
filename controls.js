@@ -38,8 +38,8 @@ class Controls {
     static midiMapping = {
         60: () => Controls.focus(0), // C4
         61: () => Controls.focus(1), // C#4
-        62: () => Controls.focus(2), // D4
-        63: () => Controls.focus(3), // D#4
+  //      62: () => Controls.focus(2), // D4
+     //   63: () => Controls.focus(3), // D#4
         64: () => Controls.switchFile('prev'), // E4
         65: () => Controls.switchFile('next'), // F4
         66: () => Controls.switchFile('random'), // F#4

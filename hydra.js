@@ -1,3 +1,5 @@
+import { Controls } from './controls.js';
+
 // Initialize Hydra
 let resolutionMode = "high"  
 const webcams = [0,5,6]
@@ -111,7 +113,7 @@ const patches = {
     1: () => {
     s0.clear()
     s0.initCam(webcams[currentCam])
-  //  s3.initCam(5)
+    //s3.initCam(5)
     s1.init({src: Buffer.buffers[0].element});
     s2.init({src: Buffer.buffers[1].element});
     
@@ -119,8 +121,8 @@ const patches = {
         .modulate(s2, () => a.fft[0])
         .blend(s0, () => a.fft[3]*4)
         .modulate(s0,() => a.fft[3]*2)
-      //  .modulate(s3,() => a.fft[2]*2)
-    //    .blend(s3)
+       // .modulate(s3,() => a.fft[2]*2)
+       // .blend(s3)
         .out();
     },
     2: () => {
@@ -151,7 +153,7 @@ const patches = {
         s1.initCam(webcams[nextCamIndex])
 
         src(s0)
-            .blend(s1)
+            .modulate(s1)
             .out();
     },
     6: () => {
