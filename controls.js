@@ -1,6 +1,6 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource, patches, switchCam, switchPatch } from './hydra.js';
-import { MediaObject, mediaLibrary, getCollection } from './media.js';
+import { MediaObject, mediaLibrary, getCollection, collections } from './media.js';
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 
 
@@ -24,6 +24,7 @@ class Controls {
         'KeyQ': () => Controls.switchFile('prev'),
         'KeyW': () => Controls.switchFile('next'),
         'KeyE': () => Controls.switchFile('random'),
+        'KeyR': () => Controls.switchCollection('next'),
         'KeyA': () => Controls.timeShift('backward'),
         'KeyS': () => Controls.timeShift('forward'),
         'KeyD': () => Controls.timeShift('random'),
@@ -31,8 +32,9 @@ class Controls {
         'KeyZ': () => Controls.speedShift('slower'),
         'KeyC': () => Controls.speedShift('normal'),
         'KeyV': () => switchCam(),
-        'KeyB': () => switchPatch()
-    
+        'KeyB': () => switchPatch(),
+        'KeyT': () => Controls.switchCollection('prev'),
+        'KeyY': () => Controls.switchCollection('random'),
     };
 
     static midiMapping = {
@@ -48,7 +50,10 @@ class Controls {
         69: () => Controls.timeShift('random'), // A4
         70: () => Controls.speedShift('slower'), // B4
         71: () => Controls.speedShift('faster'), // C5
-        72: () => Controls.speedShift('normal') // C#5
+        72: () => Controls.speedShift('normal'), // C#5
+        73: () => Controls.switchCollection('prev'),
+        74: () => Controls.switchCollection('next'),
+        75: () => Controls.switchCollection('random'),
     };
 
     static autoIntervals = {
@@ -438,6 +443,63 @@ class Controls {
             });
         });
         console.log('Controls initialized');
+    }
+
+    static switchCollection(direction = 'next') {
+        const focusedBuffer = Buffer.buffers.find(b => b.focus);
+        if (!focusedBuffer) {
+            this.warn('No buffer focused');
+            return;
+        }
+
+        this.log(`Switching collection: ${direction}`);
+        
+        // Get array of collection names, filtering out empty collections
+        const collectionNames = Array.from(collections.entries())
+            .filter(([name, collection]) => collection.items.length > 0)
+            .map(([name]) => name);
+
+        if (collectionNames.length === 0) {
+            this.warn('No non-empty collections available');
+            return;
+        }
+
+        // Find current collection index
+        const currentIndex = collectionNames.indexOf(focusedBuffer.currentCollection?.name);
+        let newIndex;
+        
+        if (currentIndex === -1) {
+            // If no current collection, start with the first one
+            newIndex = 0;
+        } else {
+            switch(direction) {
+                case 'next':
+                    newIndex = (currentIndex + 1) % collectionNames.length;
+                    break;
+                case 'prev':
+                    newIndex = (currentIndex - 1 + collectionNames.length) % collectionNames.length;
+                    break;
+                case 'random':
+                    // Ensure we don't get the same collection
+                    do {
+                        newIndex = Math.floor(Math.random() * collectionNames.length);
+                    } while (newIndex === currentIndex && collectionNames.length > 1);
+                    break;
+                default:
+                    this.warn(`Invalid direction: ${direction}`);
+                    return;
+            }
+        }
+
+        const newCollectionName = collectionNames[newIndex];
+        this.log(`Switching to collection: ${newCollectionName}`);
+        
+        try {
+            focusedBuffer.setCollection(newCollectionName);
+            reloadActiveSource();
+        } catch (error) {
+            this.error('Failed to switch collection:', error);
+        }
     }
 }
 

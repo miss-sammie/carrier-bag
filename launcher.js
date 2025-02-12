@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Then set collections if they exist
         if (getCollection('Videos')?.items.length > 0) {
-            await Buffer.buffers[0].setCollection('Images');
+            await Buffer.buffers[0].setCollection('Videos');
             await Buffer.buffers[1].setCollection('Videos');
         }
         
