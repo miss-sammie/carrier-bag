@@ -1,3 +1,5 @@
+const mediaLibrary = [];
+
 class MediaObject {
     constructor(url) {
         this.url = url;
@@ -41,7 +43,7 @@ class MediaObject {
     }
 }
 
-const mediaLibrary = [];
+const collections = new Map();
 
 class MediaCollection {
     constructor(name) {
@@ -68,9 +70,6 @@ class MediaCollection {
         return this.items;
     }
 }
-
-// Store all collections
-const collections = new Map();
 
 // Create default type-based collections
 function createDefaultCollections(mediaLibrary) {
@@ -120,64 +119,34 @@ function createDefaultCollections(mediaLibrary) {
 }
 
 // Modify loadLibrary to create default collections
-async function loadLibrary(jsonFilePath) {
+async function loadLibrary() {
     try {
-        if (!jsonFilePath) {
-            // Load all JSON files from the library directory
-            const libraryPath = './library/';
-            try {
-                const indexResponse = await fetch(libraryPath + 'index.json');
-                const index = await indexResponse.json();
-                const files = index.files || [];
-                
-                console.log("Found library files:", files);
-                
-                for (const file of files) {
-                    try {
-                        await loadLibrary(libraryPath + file);
-                        // Notify sidebar of loaded library
-                        if (window.sidebar) {
-                            window.sidebar.addLibrary(file);
-                        }
-                    } catch (error) {
-                        console.warn(`Failed to load ${file}:`, error);
-                        // Continue with other files even if one fails
-                        continue;
-                    }
-                }
-                
-                // Create default collections even if some files failed to load
-                createDefaultCollections(mediaLibrary);
-                
-                return mediaLibrary;
-            } catch (error) {
-                console.warn("Failed to load index.json, creating empty collections:", error);
-                createDefaultCollections([]);
-                return mediaLibrary;
-            }
-        }
-
-        console.log("Loading library from:", jsonFilePath);
-        const response = await fetch(jsonFilePath);
-        
+        const response = await fetch('/api/library');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const files = await response.json();
         
-        const jsonData = await response.json();
-        console.log("JSON data parsed:", jsonData.length, "items");
-
-        jsonData.forEach(path => {
-            const mediaObj = new MediaObject(path);
+        // Clear existing library
+        mediaLibrary.length = 0;
+        
+        // Create MediaObjects for each file URL
+        files.forEach(url => {
+            const mediaObj = new MediaObject(url);
             mediaLibrary.push(mediaObj);
         });
-
+        
+        // Create collections after all media is loaded
+        createDefaultCollections(mediaLibrary);
+        
         return mediaLibrary;
-
+        
     } catch (error) {
-        console.warn("Failed to load library file:", error);
-        throw error;
+        console.error("Error loading library:", error);
+        createDefaultCollections([]);
+        return mediaLibrary;
     }
+
 }
 
 // Function to create a new custom collection
