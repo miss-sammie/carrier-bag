@@ -22,6 +22,7 @@ async function initGrid() {
         }
 
         gridEnabled = true;
+        grid.varibright = true;
         console.log('Grid connected successfully');
 
         wss.on('connection', (ws) => {
