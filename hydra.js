@@ -54,8 +54,16 @@ function resizeHydraPatch() {
 
 // Reload just the active source
 function reloadActiveSource() {
-    const focusedBuffer = Buffer.buffers.find(b => b.focus);
-    if (!focusedBuffer || !focusedBuffer.element) return;
+    if (!window.Buffer || !Array.isArray(window.Buffer)) {
+        console.warn('Buffer not properly initialized for reloadActiveSource');
+        return;
+    }
+
+    const focusedBuffer = window.Buffer.find(b => b.focus);
+    if (!focusedBuffer || !focusedBuffer.element) {
+        console.warn('No focused buffer or element found');
+        return;
+    }
 
     // Only reload if the source has changed
     const source = focusedBuffer.slot === 0 ? s1 : s2;
@@ -78,25 +86,41 @@ function switchCam() {
    // s0.initCam(webcams[currentCam])
 }
 
-// Reload entire patch
+// Remove the hardcoded patches object and make it a variable that can be set
+let patches = {};
+
+// Modify reloadPatch to handle string-based patches
 function reloadPatch(patch) {
-    // s0.initCam()
-    // s1.init({src: Buffer.buffers[0].element});
-    // s2.init({src: Buffer.buffers[1].element});
-    // src(s1)
-    //     .modulate(s2, () => a.fft[0])
-    //     .blend(s0, () => a.fft[3]*4)
-    //     .modulate(s0,() => a.fft[3]*2)
-    //     .modulate(s3,() => a.fft[2]*2)
-    //     .blend(s3,.5)
-    //     .out();
-    if (patch) {
-        patches[patch]();
-        currentPatch = patch
-    } else {
-        patches[1]();
-        currentPatch = 1
+    if (!patch) {
+        patch = 1;
     }
+    
+    const patchCode = patches[patch];
+    if (patchCode) {
+        // Create a context with necessary variables
+        const context = `
+            const webcams = ${JSON.stringify(webcams)};
+            const currentCam = ${currentCam};
+            const Buffer = {
+                buffers: window.Buffer
+            };
+            ${patchCode}
+        `;
+        
+        // Convert the string patch into a function and execute it
+        const patchFunction = new Function(`return () => {
+            ${context}
+        }`)();
+        patchFunction();
+        currentPatch = patch;
+    } else {
+        console.error(`Patch ${patch} not found`);
+    }
+}
+
+// Add method to set patches from scene config
+function setPatches(newPatches) {
+    patches = newPatches;
 }
 
 function switchPatch() {
@@ -106,64 +130,6 @@ function switchPatch() {
     console.log("reloading patch", currentPatch);
 }
 
-
-
-
-const patches = {
-    1: () => {
-    s0.clear()
-    s0.initCam(webcams[currentCam])
-    //s3.initCam(5)
-    s1.init({src: Buffer.buffers[0].element});
-    s2.init({src: Buffer.buffers[1].element});
-    
-    src(s1)
-        .modulate(s2, () => a.fft[0])
-        .blend(s0, () => a.fft[3]*4)
-        .modulate(s0,() => a.fft[3]*2)
-       // .modulate(s3,() => a.fft[2]*2)
-       // .blend(s3)
-        .out();
-    },
-    2: () => {
-        s0.clear()
-        s0.initCam(webcams[currentCam])
-        s1.init({src: Buffer.buffers[0].element});
-        s2.init({src: Buffer.buffers[1].element});
-        src(s1)
-            .modulate(s0)
-            .add(s2)
-            .out();
-    },
-    3: () => {
-        s1.init({src: Buffer.buffers[0].element});
-        src(s1)
-            .out();
-    },
-    4: () => {
-        s2.init({src: Buffer.buffers[1].element});
-        src(s2)
-            .out();
-    },
-    5: () => {
-        s0.clear()
-        s1.clear()
-        s0.initCam(webcams[currentCam])
-        const nextCamIndex = (currentCam + 1) % webcams.length;
-        s1.initCam(webcams[nextCamIndex])
-
-        src(s0)
-            .modulate(s1)
-            .out();
-    },
-    6: () => {
-        s0.clear()
-        s0.initCam(webcams[currentCam])
-        src(s0)
-        .out()
-    }
-}
-
 // Add a function to toggle resolution
 function toggleResolution() {
     resolutionMode = resolutionMode === "high" ? "low" : "high";
@@ -171,4 +137,17 @@ function toggleResolution() {
     reloadPatch();  // Reload the patch to update sources
 }
 
-export { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch, toggleResolution, patches, currentCam, webcams, switchCam, currentPatch, switchPatch };
+export { 
+    initHydra, 
+    reloadActiveSource, 
+    reloadPatch, 
+    resizeHydraPatch, 
+    toggleResolution, 
+    setPatches,  
+    currentCam, 
+    webcams, 
+    switchCam, 
+    currentPatch, 
+    switchPatch,
+    patches
+};

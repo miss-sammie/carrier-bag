@@ -55,9 +55,9 @@ class Controls {
         70: () => Controls.speedShift('slower'), // B4
         71: () => Controls.speedShift('faster'), // C5
         72: () => Controls.speedShift('normal'), // C#5
-        73: () => Controls.switchCollection('prev'),
-        74: () => Controls.switchCollection('next'),
-        75: () => Controls.switchCollection('random'),
+      //  73: () => Controls.switchCollection('prev'),
+        //74: () => Controls.switchCollection('next'),
+      //  75: () => Controls.switchCollection('random'),
     };
 
     static autoIntervals = {
@@ -526,9 +526,8 @@ class Controls {
         }
     }
 
-    static initializeGrid() {
-        this.log('About to initialize grid...');
-        const connectWebSocket = () => {
+    static async initializeGrid() {
+        try {
             this.log('GRID: Attempting WebSocket connection...');
             this.ws = new WebSocket('ws://localhost:8080');
 
@@ -550,31 +549,30 @@ class Controls {
             };
 
             this.ws.onclose = () => {
-                this.warn('WebSocket connection closed');  // Changed to warn for visibility
+                this.warn('WebSocket connection closed');
                 this.gridEnabled = false;
-                setTimeout(connectWebSocket, 2000);
             };
 
             this.ws.onerror = (error) => {
-                this.error('WebSocket error:', error);  // Changed to error for visibility
+                this.error('WebSocket error:', error);
+                this.gridEnabled = false;
             };
 
             this.ws.onmessage = (event) => {
-                this.log('Client received WebSocket message:', event.data);
                 try {
                     const data = JSON.parse(event.data);
                     if (data.type === 'gridKey') {
-                        this.log('Processing grid key press:', data.x, data.y, data.s);
                         this.handleGridPress(data.x, data.y, data.s);
                     }
                 } catch (error) {
                     this.error('Error processing WebSocket message:', error);
                 }
             };
-        };
 
-        connectWebSocket();
-        this.log('Grid initialization started');
+        } catch (error) {
+            this.log('Grid initialization skipped:', error);
+            this.gridEnabled = false;
+        }
     }
 
     static handleGridPress(x, y, s) {

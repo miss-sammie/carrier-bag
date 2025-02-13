@@ -1,4 +1,5 @@
 console.log("Starting carrier bag...");
+import { Scene } from './scene.js';
 import { frequencyToLetter, initializeTextOverlay, postText, initBabbler } from './sheSpeaks.js'
 import { initHydra, reloadActiveSource, reloadPatch, resizeHydraPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
@@ -9,37 +10,16 @@ import { Sidebar } from './sidebar.js';
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Imports completed");
-
-    // Initialize buffers
-    Buffer.initBuffers(2, 0);
-    console.log("Buffers initialized");
-
-    window.Buffer = Buffer;
-    window.Controls = Controls;
-    window.reloadPatch = reloadPatch;
-
+    
     try {
-        console.log("About to load library...");
-        await loadLibrary();
-        console.log("Library loaded:", mediaLibrary);
+        const scene = await Scene.load('periphone');
+        await scene.initialize();
         
-        // Then set collections if they exist
-        if (getCollection('Videos')?.items.length > 0) {
-            await Buffer.buffers[0].setCollection('Videos');
-            await Buffer.buffers[1].setCollection('Videos');
-        }
+        // Make necessary objects available globally
+        window.Buffer = scene.buffers;
+        window.Controls = Controls;
+        window.reloadPatch = reloadPatch;
         
-        // Initialize controls separately
-        Controls.init();
-        Controls.initializeMIDI();
-        Controls.initializeGrid();
-
-        const hydra = initHydra();
-        reloadPatch(1);
-
-        // Initialize babbler with popup mode
-        initBabbler('popup');
-
     } catch (error) {
         console.error("Error in main:", error);
     }
