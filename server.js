@@ -5,13 +5,19 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
 import { readdir } from 'node:fs/promises';
+import { scanLibrary } from './api/library.js';
+import { initGrid } from './api/grid.js';
+
+console.log("Starting server initialization...");
 
 // Load environment variables
 dotenv.config();
+console.log("Environment variables loaded");
 
 // Get directory name for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+console.log("Directory setup complete");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -21,10 +27,21 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+console.log("Middleware setup complete");
 
 // Serve static files from both root directory and public folder
 app.use(express.static(__dirname));
 app.use('/library', express.static(join(__dirname, 'public', 'library')));
+console.log("Static file serving setup complete");
+
+console.log("Attempting to initialize grid...");
+// Initialize grid when server starts
+try {
+    await initGrid();
+    console.log("Grid initialization complete");
+} catch (error) {
+    console.error("Error initializing grid:", error);
+}
 
 // Routes
 app.get('/api/health', (req, res) => {

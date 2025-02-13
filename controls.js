@@ -2,7 +2,7 @@ import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource, patches, switchCam, switchPatch } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection, collections } from './media.js';
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
-
+//import monomeGrid from './lib/monome-grid-wrapper.js';
 
 class Controls {
     static timeOperations = ['forward', 'backward', 'reset', 'random'];
@@ -14,7 +14,11 @@ class Controls {
     static midiEnabled = false;
     static timeShiftInterval = 2
     static DEBUG = false;  // Debug flag - set to true to enable logging
-
+    static gridEnabled = false;
+    static grid = null;
+    static led = [];
+    static dirty = true;
+    static ws = null;
 
     static keyMapping = {
         'Digit1': () => Controls.focus(0),
@@ -152,17 +156,47 @@ class Controls {
         }
     };
 
+    static gridMapping = {
+        // Bottom row (y=7) for buffer focus
+        '7,0': () => Controls.focus(0),
+        '7,1': () => Controls.focus(1),
+      //  '7,2': () => Controls.focus(2),
+      //  '7,3': () => Controls.focus(3),
+        
+        // Row 6 for file switching
+        '6,0': () => Controls.switchFile('prev'),
+        '6,1': () => Controls.switchFile('next'),
+        '6,2': () => Controls.switchFile('random'),
+        
+        // Row 5 for time operations
+        '5,0': () => Controls.timeShift('backward'),
+        '5,1': () => Controls.timeShift('forward'),
+        '5,2': () => Controls.timeShift('random'),
+        
+        // Row 4 for speed operations
+        '4,0': () => Controls.speedShift('slower'),
+        '4,1': () => Controls.speedShift('faster'),
+        '4,2': () => Controls.speedShift('normal'),
+        
+        // Row 3 for collection switching
+        '3,0': () => Controls.switchCollection('prev'),
+        '3,1': () => Controls.switchCollection('next'),
+        '3,2': () => Controls.switchCollection('random'),
+    };
 
     static init() {
+        this.log('Starting Controls initialization...');
+        
+        // Keyboard initialization only
         Object.entries(this.keyMapping).forEach(([key, handler]) => {
-
             document.addEventListener('keyup', (event) => {
                 if (event.code === key) {
                     handler();
                 }
             });
         });
-        console.log('Controls initialized');
+
+        this.log('Keyboard controls initialized');
     }
 
     static initializeMIDI() {
@@ -262,7 +296,7 @@ class Controls {
     
     static switchInProgress = false;
     static lastSwitchTime = 0;
-    static SWITCH_COOLDOWN = 500; // 500ms cooldown between switches
+    static SWITCH_COOLDOWN = 200; // 500ms cooldown between switches
 
     static log(...args) {
         if (this.DEBUG) {
@@ -432,17 +466,7 @@ class Controls {
         });
         Buffer.buffers[buffer].focus = true;
         console.log(`Focused buffer ${buffer}`);
-    }
-
-    static init() {
-        Object.entries(this.keyMapping).forEach(([key, handler]) => {
-            document.addEventListener('keyup', (event) => {
-                if (event.code === key) {
-                    handler();
-                }
-            });
-        });
-        console.log('Controls initialized');
+        this.dirty = true;  // Mark grid for update
     }
 
     static switchCollection(direction = 'next') {
@@ -501,12 +525,124 @@ class Controls {
             this.error('Failed to switch collection:', error);
         }
     }
+
+    static initializeGrid() {
+        this.log('About to initialize grid...');
+        const connectWebSocket = () => {
+            this.log('GRID: Attempting WebSocket connection...');
+            this.ws = new WebSocket('ws://localhost:8080');
+
+            this.ws.onopen = () => {
+                this.log('WebSocket Connected to Grid');
+                this.gridEnabled = true;
+
+                // Initialize LED array
+                for (let y = 0; y < 8; y++) {
+                    this.led[y] = [];
+                    for (let x = 0; x < 16; x++) {
+                        this.led[y][x] = 0;
+                    }
+                }
+
+                // Start the refresh loop
+                this.startGridRefresh();
+                this.log('Grid refresh loop started');
+            };
+
+            this.ws.onclose = () => {
+                this.warn('WebSocket connection closed');  // Changed to warn for visibility
+                this.gridEnabled = false;
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            this.ws.onerror = (error) => {
+                this.error('WebSocket error:', error);  // Changed to error for visibility
+            };
+
+            this.ws.onmessage = (event) => {
+                this.log('Client received WebSocket message:', event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'gridKey') {
+                        this.log('Processing grid key press:', data.x, data.y, data.s);
+                        this.handleGridPress(data.x, data.y, data.s);
+                    }
+                } catch (error) {
+                    this.error('Error processing WebSocket message:', error);
+                }
+            };
+        };
+
+        connectWebSocket();
+        this.log('Grid initialization started');
+    }
+
+    static handleGridPress(x, y, s) {
+        this.log('Handling grid press:', x, y, s);
+        
+        // Only handle button presses (s=1), not releases (s=0)
+        if (s === 1) {
+            const key = `${y},${x}`;
+            const handler = this.gridMapping[key];
+            
+            if (handler) {
+                this.log(`Executing grid command for ${key}`);
+                handler();
+                this.dirty = true;  // Mark grid for update
+            }
+        }
+    }
+
+    static startGridRefresh() {
+        const refresh = () => {
+            if (this.dirty && this.gridEnabled) {
+                // Clear all LEDs
+                for (let y = 0; y < 8; y++) {
+                    this.led[y] = [];
+                    for (let x = 0; x < 16; x++) {
+                        this.led[y][x] = 0;
+                    }
+                }
+
+                // Light up all mapped controls with mild brightness
+                Object.keys(this.gridMapping).forEach(key => {
+                    const [y, x] = key.split(',').map(Number);
+                    this.led[y][x] = 4;  // mild brightness
+                });
+
+                // Draw focus slots on bottom row with appropriate brightness
+                Buffer.buffers.forEach((buffer, index) => {
+                    this.led[7][index] = buffer.focus ? 15 : 4;  // Bright for focused, dim for unfocused
+                });
+
+                // Update grid
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({
+                        type: 'ledUpdate',
+                        led: this.led
+                    }));
+                }
+                this.dirty = false;
+            }
+            requestAnimationFrame(refresh);
+        };
+
+        refresh();
+        this.log('Grid refresh loop started');
+    }
+
+    static cleanup() {
+        if (this.gridEnabled && this.grid) {
+            // Clear all LEDs
+            const blankLed = Array(8).fill().map(() => Array(16).fill(0));
+            this.grid.refresh(blankLed);
+        }
+    }
 }
 
-
-
-
-
-
+// Add event listener for cleanup
+window.addEventListener('beforeunload', () => {
+    Controls.cleanup();
+});
 
 export { Controls };

@@ -29,9 +29,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             await Buffer.buffers[1].setCollection('Videos');
         }
         
-        // Initialize controls
+        // Initialize controls separately
         Controls.init();
         Controls.initializeMIDI();
+        Controls.initializeGrid();
 
         const hydra = initHydra();
         reloadPatch(1);
