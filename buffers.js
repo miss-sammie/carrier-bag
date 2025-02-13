@@ -215,6 +215,17 @@ class Buffer {
         //this.updateUI();
         return this.element;
     }
+
+    // Update cleanup method
+    cleanup() {
+        if (this.element) {
+            if (this.element.tagName === 'VIDEO' || this.element.tagName === 'AUDIO') {
+                this.element.pause();
+                this.element.src = '';
+            }
+            this.element = null;
+        }
+    }
 }
 
 export { Buffer };

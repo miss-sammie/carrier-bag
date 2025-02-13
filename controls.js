@@ -19,6 +19,7 @@ class Controls {
     static led = [];
     static dirty = true;
     static ws = null;
+    static playheadInterval = null;
 
     static keyMapping = {
         'Digit1': () => Controls.focus(0),
@@ -102,11 +103,9 @@ class Controls {
             setPauseTime(pauseTime);
         },
         37: (value) => {    
-            //switch patch  
-            const patcharray = Object.keys(patches);
-            const nextPatch = Math.floor((value / 127) * patcharray.length) + 1;
-            console.log(nextPatch)
-            reloadPatch(nextPatch);
+            const patchArray = Object.keys(patches);
+            const nextPatch = Math.floor((value / 127) * patchArray.length) + 1;
+            Controls.switchPatch(nextPatch);
         },
         38: (value) => {
             //speed shift
@@ -157,12 +156,6 @@ class Controls {
     };
 
     static gridMapping = {
-        // Bottom row (y=7) for buffer focus
-        '7,0': () => Controls.focus(0),
-        '7,1': () => Controls.focus(1),
-      //  '7,2': () => Controls.focus(2),
-      //  '7,3': () => Controls.focus(3),
-        
         // Row 6 for file switching
         '6,0': () => Controls.switchFile('prev'),
         '6,1': () => Controls.switchFile('next'),
@@ -182,6 +175,125 @@ class Controls {
         '3,0': () => Controls.switchCollection('prev'),
         '3,1': () => Controls.switchCollection('next'),
         '3,2': () => Controls.switchCollection('random'),
+
+        // Row 2 for patch switching
+        '2,0': () => Controls.switchPatch('prev'),
+        '2,1': () => Controls.switchPatch('next'),
+        '2,2': () => Controls.switchPatch('random'),
+
+        // Row 0 for timeline scrubbing
+        '0,0': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (0 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,1': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (1 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,2': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (2 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,3': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (3 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,4': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (4 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,5': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (5 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,6': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (6 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,7': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (7 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,8': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (8 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,9': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (9 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,10': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (10 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,11': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (11 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,12': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (12 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,13': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (13 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,14': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (14 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
+        '0,15': () => {
+            const focusedBuffer = Buffer.buffers.find(b => b.focus);
+            if (focusedBuffer?.element?.duration) {
+                const timePosition = (15 / 15) * focusedBuffer.element.duration;
+                focusedBuffer.element.currentTime = timePosition;
+            }
+        },
     };
 
     static init() {
@@ -197,6 +309,11 @@ class Controls {
         });
 
         this.log('Keyboard controls initialized');
+
+        // Add dynamic speed buttons to gridMapping
+        Controls.speeds.forEach((speed, index) => {
+            Controls.gridMapping[`4,${index + 4}`] = () => Controls.speedShift(speed);
+        });
     }
 
     static initializeMIDI() {
@@ -399,11 +516,10 @@ class Controls {
 
         if (typeof speed === 'number') {
             // Clamp speed between 0.25 and 8
-            const clampedSpeed = Math.max(0.25, Math.min(8, speed));
-            element.playbackRate = clampedSpeed;
-            this.log(`Speed changed to ${clampedSpeed.toFixed(2)}x`);
+            element.playbackRate = speed;
+            this.log(`Speed changed to ${speed}x`);
         } else {
-            // Handle existing string-based operations ('faster', 'slower', 'normal')
+            // Handle string-based operations ('faster', 'slower', 'normal')
             const currentSpeed = element.playbackRate;
             const currentIndex = Controls.speeds.indexOf(currentSpeed);
             let newIndex;
@@ -419,6 +535,17 @@ class Controls {
                     newIndex = Controls.speeds.indexOf(1);
                     break;
                 default:
+                    // Try parsing the speed as a number if it's a string
+                    const numericSpeed = parseFloat(speed);
+                    if (!isNaN(numericSpeed)) {
+                        const clampedSpeed = Math.max(0.25, Math.min(8, numericSpeed));
+                        element.playbackRate = clampedSpeed;
+                        this.log(`Speed changed to ${clampedSpeed.toFixed(2)}x`);
+                        if (window.sidebar) {
+                            window.sidebar.update();
+                        }
+                        return;
+                    }
                     this.warn(`Invalid speed shift operation: ${speed}`);
                     return;
             }
@@ -432,8 +559,41 @@ class Controls {
         }
     }
 
-    static switchPatch(patch) {
-        reloadPatch(patch);
+    static switchPatch(operation = 'next') {
+        const patchArray = Object.keys(patches);
+        const currentIndex = patchArray.indexOf(window.currentPatch);
+        let nextIndex;
+
+        if (typeof operation === 'number') {
+            // Direct index selection (used by CC)
+            nextIndex = Math.min(Math.max(0, operation - 1), patchArray.length - 1);
+        } else {
+            // Handle string-based operations
+            switch(operation) {
+                case 'next':
+                    nextIndex = (currentIndex + 1) % patchArray.length;
+                    break;
+                case 'prev':
+                    nextIndex = (currentIndex - 1 + patchArray.length) % patchArray.length;
+                    break;
+                case 'random':
+                    do {
+                        nextIndex = Math.floor(Math.random() * patchArray.length);
+                    } while (nextIndex === currentIndex && patchArray.length > 1);
+                    break;
+                default:
+                    // If operation is a patch name, try to find its index
+                    const namedIndex = patchArray.indexOf(operation);
+                    if (namedIndex !== -1) {
+                        nextIndex = namedIndex;
+                    } else {
+                        this.warn(`Invalid patch operation: ${operation}`);
+                        return;
+                    }
+            }
+        }
+
+        reloadPatch(patchArray[nextIndex]);
     }
 
     static togglePlay(element) {
@@ -527,6 +687,45 @@ class Controls {
     }
 
     static async initializeGrid() {
+        // Add dynamic speed buttons
+        Controls.speeds.forEach((speed, index) => {
+            Controls.gridMapping[`4,${index + 4}`] = () => Controls.speedShift(speed);
+        });
+
+        // Add dynamic buffer focus buttons
+        Buffer.buffers.forEach((buffer, index) => {
+            Controls.gridMapping[`7,${index}`] = () => Controls.focus(index);
+        });
+
+        // Add dynamic collection buttons (skip empty collections)
+        const nonEmptyCollections = Array.from(collections.entries())
+            .filter(([name, collection]) => collection.items.length > 0);
+        nonEmptyCollections.forEach(([name, collection], index) => {
+            Controls.gridMapping[`3,${index + 4}`] = () => {
+                const focusedBuffer = Buffer.buffers.find(b => b.focus);
+                if (focusedBuffer) {
+                    focusedBuffer.setCollection(name);
+                    reloadActiveSource();
+                }
+            };
+        });
+
+        // Add dynamic patch buttons
+        Object.keys(patches).forEach((patch, index) => {
+            Controls.gridMapping[`2,${index + 4}`] = () => Controls.switchPatch(patch);
+        });
+
+        // Add timeline scrubbing controls
+        for (let x = 0; x < 16; x++) {
+            Controls.gridMapping[`0,${x}`] = () => {
+                const focusedBuffer = Buffer.buffers.find(b => b.focus);
+                if (focusedBuffer?.element?.duration) {
+                    const timePosition = (x / 15) * focusedBuffer.element.duration;
+                    focusedBuffer.element.currentTime = timePosition;
+                }
+            };
+        }
+
         try {
             this.log('GRID: Attempting WebSocket connection...');
             this.ws = new WebSocket('ws://localhost:8080');
@@ -608,9 +807,33 @@ class Controls {
                     this.led[y][x] = 4;  // mild brightness
                 });
 
-                // Draw focus slots on bottom row with appropriate brightness
+                const focusedBuffer = Buffer.buffers.find(b => b.focus);
+
+                // Update buffer focus buttons
                 Buffer.buffers.forEach((buffer, index) => {
-                    this.led[7][index] = buffer.focus ? 15 : 4;  // Bright for focused, dim for unfocused
+                    this.led[7][index] = buffer.focus ? 15 : 4;
+                });
+
+                // Update speed buttons
+                if (focusedBuffer?.element) {
+                    const currentSpeed = focusedBuffer.element.playbackRate;
+                    Controls.speeds.forEach((speed, index) => {
+                        this.led[4][index + 4] = Math.abs(currentSpeed - speed) < 0.01 ? 15 : 4;
+                    });
+
+                    // Update collection buttons
+                    const currentCollection = focusedBuffer.currentCollection?.name;
+                    const nonEmptyCollections = Array.from(collections.entries())
+                        .filter(([name, collection]) => collection.items.length > 0);
+                    nonEmptyCollections.forEach(([name, collection], index) => {
+                        this.led[3][index + 4] = (name === currentCollection) ? 15 : 4;
+                    });
+                }
+
+                // Update patch buttons
+                const currentPatch = Object.keys(patches).indexOf(window.currentPatch);
+                Object.keys(patches).forEach((patch, index) => {
+                    this.led[2][index + 4] = (index === currentPatch) ? 15 : 4;
                 });
 
                 // Update grid
@@ -630,10 +853,19 @@ class Controls {
     }
 
     static cleanup() {
-        if (this.gridEnabled && this.grid) {
-            // Clear all LEDs
-            const blankLed = Array(8).fill().map(() => Array(16).fill(0));
-            this.grid.refresh(blankLed);
+        if (this.ws) {
+            this.ws.close();
+        }
+    }
+
+    // Add timeupdate event listener to keep grid refreshing during playback
+    static addTimeUpdateListener(buffer) {
+        if (buffer.element && ['video', 'audio'].includes(buffer.filetype)) {
+            buffer.element.addEventListener('timeupdate', () => {
+                if (buffer.focus) {
+                    this.dirty = true;
+                }
+            });
         }
     }
 }
