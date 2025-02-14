@@ -4,62 +4,13 @@ import { MediaObject, mediaLibrary, getCollection, collections } from './media.j
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 //import monomeGrid from './lib/monome-grid-wrapper.js';
 
-class Controls {
+export class Controls {
     static timeOperations = ['forward', 'backward', 'reset', 'random'];
     static speedOperations = ['faster', 'slower', 'normal'];
     static speeds = [0.25,0.5, 1, 2, 4];
     static switchOperations = ['next', 'prev', 'random'];
-    static midiAccess = null;
-    static midiInputs = [];
-    static midiEnabled = false;
     static timeShiftInterval = 2
     static DEBUG = false;  // Debug flag - set to true to enable logging
-    static gridEnabled = false;
-    static grid = null;
-    static led = [];
-    static dirty = true;
-    static ws = null;
-    static playheadInterval = null;
-
-    static keyMapping = {
-        'Digit1': () => Controls.focus(0),
-        'Digit2': () => Controls.focus(1),
-        'Digit3': () => Controls.focus(2),
-        'Digit4': () => Controls.focus(3),
-        'KeyQ': () => Controls.switchFile('prev'),
-        'KeyW': () => Controls.switchFile('next'),
-        'KeyE': () => Controls.switchFile('random'),
-        'KeyR': () => Controls.switchCollection('next'),
-        'KeyA': () => Controls.timeShift('backward'),
-        'KeyS': () => Controls.timeShift('forward'),
-        'KeyD': () => Controls.timeShift('random'),
-        'KeyX': () => Controls.speedShift('faster'),
-        'KeyZ': () => Controls.speedShift('slower'),
-        'KeyC': () => Controls.speedShift('normal'),
-        'KeyV': () => switchCam(),
-        'KeyB': () => switchPatch(),
-        'KeyT': () => Controls.switchCollection('prev'),
-        'KeyY': () => Controls.switchCollection('random'),
-    };
-
-    static midiMapping = {
-        60: () => Controls.focus(0), // C4
-        61: () => Controls.focus(1), // C#4
-  //      62: () => Controls.focus(2), // D4
-     //   63: () => Controls.focus(3), // D#4
-        64: () => Controls.switchFile('prev'), // E4
-        65: () => Controls.switchFile('next'), // F4
-        66: () => Controls.switchFile('random'), // F#4
-        67: () => Controls.timeShift('backward'), // G4
-        68: () => Controls.timeShift('forward'), // G#4
-        69: () => Controls.timeShift('random'), // A4
-        70: () => Controls.speedShift('slower'), // B4
-        71: () => Controls.speedShift('faster'), // C5
-        72: () => Controls.speedShift('normal'), // C#5
-      //  73: () => Controls.switchCollection('prev'),
-        //74: () => Controls.switchCollection('next'),
-      //  75: () => Controls.switchCollection('random'),
-    };
 
     static autoIntervals = {
         switch: null,
@@ -95,303 +46,10 @@ class Controls {
             this.log(`Auto-${type} interval stopped`);
         }
     }
-    static ccState = {};
-
-    static midiCCMapping = {
-        42: (value) => {
-            const pauseTime = Math.floor((value / 127) * 3999) + 1;
-            setPauseTime(pauseTime);
-        },
-        37: (value) => {    
-            const patchArray = Object.keys(patches);
-            const nextPatch = Math.floor((value / 127) * patchArray.length) + 1;
-            Controls.switchPatch(nextPatch);
-        },
-        38: (value) => {
-            //speed shift
-            if (value < 54) {
-                const normalizedValue = value / 54;
-                const speed = 0.25 + (normalizedValue * 0.75);
-                Controls.speedShift(speed);
-            } else if (value > 74) {
-                const normalizedValue = (value - 74) / (127 - 74);
-                const speed = 1 + (normalizedValue * 7);
-                Controls.speedShift(speed);
-            } else {
-                Controls.speedShift(1);
-            }
-        },
-        39: (value) => {
-            //time shift
-            if (value < 54) {
-                const normalizedValue = value / 54;
-                const interval = Math.floor(1000 + normalizedValue * 4000);
-                Controls.timeShift('backward');
-                Controls.createAutoInterval('time', () => Controls.timeShift('backward'), interval);
-            } else if (value > 74) {
-                const normalizedValue = (value - 74) / (127 - 74);
-                const interval = Math.floor(5000 - normalizedValue * 4000);
-                Controls.timeShift('forward');
-                Controls.createAutoInterval('time', () => Controls.timeShift('forward'), interval);
-            } else {
-                Controls.clearAutoInterval('time');
-            }
-        },
-        40: (value) => {
-            //time shift interval
-            const timeShiftIntervalRange = Math.floor((value / 127) * 9) + 1; // This gives range 1-10
-            Controls.timeShiftInterval = timeShiftIntervalRange;
-            console.log(Controls.timeShiftInterval);
-        },
-        41: (value) => {
-            //switch file 
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            const collection = focusedBuffer.currentCollection.items;
-            const nextFileIndex = Math.floor((value / 127) * (collection.length - 1));
-            console.log('MIDI value:', value, 'Next index:', nextFileIndex);
-            focusedBuffer.loadMedia(collection[nextFileIndex].url);
-            console.log(collection[nextFileIndex].url)
-            reloadActiveSource();
-        }
-    };
-
-    static gridMapping = {
-        // Row 6 for file switching
-        '6,0': () => Controls.switchFile('prev'),
-        '6,1': () => Controls.switchFile('next'),
-        '6,2': () => Controls.switchFile('random'),
-        
-        // Row 5 for time operations
-        '5,0': () => Controls.timeShift('backward'),
-        '5,1': () => Controls.timeShift('forward'),
-        '5,2': () => Controls.timeShift('random'),
-        
-        // Row 4 for speed operations
-        '4,0': () => Controls.speedShift('slower'),
-        '4,1': () => Controls.speedShift('faster'),
-        '4,2': () => Controls.speedShift('normal'),
-        
-        // Row 3 for collection switching
-        '3,0': () => Controls.switchCollection('prev'),
-        '3,1': () => Controls.switchCollection('next'),
-        '3,2': () => Controls.switchCollection('random'),
-
-        // Row 2 for patch switching
-        '2,0': () => Controls.switchPatch('prev'),
-        '2,1': () => Controls.switchPatch('next'),
-        '2,2': () => Controls.switchPatch('random'),
-
-        // Row 0 for timeline scrubbing
-        '0,0': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (0 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,1': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (1 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,2': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (2 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,3': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (3 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,4': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (4 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,5': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (5 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,6': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (6 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,7': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (7 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,8': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (8 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,9': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (9 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,10': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (10 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,11': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (11 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,12': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (12 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,13': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (13 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,14': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (14 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-        '0,15': () => {
-            const focusedBuffer = Buffer.buffers.find(b => b.focus);
-            if (focusedBuffer?.element?.duration) {
-                const timePosition = (15 / 15) * focusedBuffer.element.duration;
-                focusedBuffer.element.currentTime = timePosition;
-            }
-        },
-    };
 
     static init() {
         this.log('Starting Controls initialization...');
-        
-        // Keyboard initialization only
-        Object.entries(this.keyMapping).forEach(([key, handler]) => {
-            document.addEventListener('keyup', (event) => {
-                if (event.code === key) {
-                    handler();
-                }
-            });
-        });
-
-        this.log('Keyboard controls initialized');
-
-        // Add dynamic speed buttons to gridMapping
-        Controls.speeds.forEach((speed, index) => {
-            Controls.gridMapping[`4,${index + 4}`] = () => Controls.speedShift(speed);
-        });
-    }
-
-    static initializeMIDI() {
-        console.log('Attempting MIDI initialization...');
-        if (navigator.requestMIDIAccess) {
-            console.log('Browser supports MIDI access');
-            navigator.requestMIDIAccess()
-                .then((access) => {
-                    console.log('MIDI Access granted:', access);
-                    this.onMIDISuccess(access);
-                })
-                .catch((error) => {
-                    console.error('MIDI Access failed:', error);
-                    this.onMIDIFailure(error);
-                });
-        } else {
-            console.warn('Web MIDI API not supported in this browser.');
-        }
-    }
-
-    static testMIDIInput() {
-        if (!this.midiEnabled) {
-            console.warn('MIDI is not enabled');
-            return;
-        }
-    
-        console.log('Current MIDI state:', {
-            access: this.midiAccess,
-            inputs: Array.from(this.midiAccess.inputs.values()),
-            enabled: this.midiEnabled
-        });
-    }
-
-    
-    static onMIDISuccess = (midiAccess) => {
-        console.log('MIDI access granted');
-        const inputs = Array.from(midiAccess.inputs.values());
-        console.log('Available MIDI inputs:', inputs);
-        
-        inputs.forEach(input => {
-            console.log(`Setting up MIDI input: ${input.name}`);
-            input.onmidimessage = this.handleMIDIMessage;
-        });
-    }
-
-    static onMIDIFailure() {
-        console.warn('Failed to access MIDI devices.');
-    }
-
-    static handleMIDIMessage(message) {
-        const [status, note, velocity] = message.data;
-        
-        if (status === 144 && velocity > 0) { // Note on
-            const handler = Controls.midiMapping[note];
-            if (handler) {
-                handler();
-            }
-        } else if (status === 176) { // Control Change (CC)
-            // Create static object to store last values and timeouts for each CC
-            Controls.ccState = Controls.ccState || {};
-            Controls.ccState[note] = Controls.ccState[note] || { lastValue: null, timeout: null };
-            
-            // If value has changed, reset the timeout
-            if (velocity !== Controls.ccState[note].lastValue) {
-                Controls.ccState[note].lastValue = velocity;
-                if (Controls.ccState[note].timeout) {
-                    clearTimeout(Controls.ccState[note].timeout);
-                }
-                
-                // Start a new timeout
-                Controls.ccState[note].timeout = setTimeout(() => {
-                    const handler = Controls.midiCCMapping[note];
-                    if (handler) {
-                        handler(velocity);
-                    }
-                }, 150);
-            }
-        }
+        this.log('Controls initialized');
     }
 
     static get focusedBuffer() {
@@ -428,15 +86,13 @@ class Controls {
     }
 
     static error(...args) {
-        // Errors might be important enough to always log
-        // Or you can make them conditional too
         if (this.DEBUG) {
             console.error(...args);
         }
     }
 
     static async switchFile(direction = 'next') {
-        const focusedBuffer = Buffer.buffers.find(b => b.focus);
+        const focusedBuffer = this.focusedBuffer;
         if (!focusedBuffer) {
             this.warn('No buffer focused');
             return;
@@ -459,20 +115,17 @@ class Controls {
                 newIndex = (focusedBuffer.currentIndex - 1 + length) % length;
                 break;
             case 'random':
-                newIndex = Math.floor(Math.random() * length);
+                    newIndex = Math.floor(Math.random() * length);
                 break;
         }
 
             focusedBuffer.currentIndex = newIndex;
-            focusedBuffer.loadMedia(collection[newIndex].url);
-            
-        
+        focusedBuffer.loadMedia(collection[newIndex].url);
     }
-
     
     static timeShift(operation) {
-        const focusedBuffer = Buffer.buffers.find(b => b.focus);
-        if (!focusedBuffer || !focusedBuffer.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {
+        const focusedBuffer = this.focusedBuffer;
+        if (!focusedBuffer?.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {
             this.warn('Cannot time shift: no valid media element');
             return;
         }
@@ -480,7 +133,6 @@ class Controls {
         const element = focusedBuffer.element;
         const duration = element.duration;
     
-        // Ensure duration is valid before proceeding
         if (!duration || isNaN(duration)) {
             this.warn('Cannot time shift: invalid duration');
             return;
@@ -500,14 +152,18 @@ class Controls {
                 element.currentTime = Math.floor(Math.random() * duration);
                 break;
             default:
-                this.warn(`Invalid time shift operation: ${operation}`);
-                return;
+                // If operation is a number between 0 and 1, use it as a position
+                if (typeof operation === 'number' && operation >= 0 && operation <= 1) {
+                    element.currentTime = operation * duration;
+                } else {
+                    this.warn(`Invalid time shift operation: ${operation}`);
+                }
         }
     }
 
     static speedShift(speed) {
-        const focusedBuffer = Buffer.buffers.find(b => b.focus);
-        if (!focusedBuffer || !focusedBuffer.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {
+        const focusedBuffer = this.focusedBuffer;
+        if (!focusedBuffer?.element || !['video', 'audio'].includes(focusedBuffer.filetype)) {
             this.warn('Cannot speed shift: no valid media element');
             return;
         }
@@ -515,47 +171,30 @@ class Controls {
         const element = focusedBuffer.element;
 
         if (typeof speed === 'number') {
-            // Clamp speed between 0.25 and 8
-            element.playbackRate = speed;
-            this.log(`Speed changed to ${speed}x`);
+            const clampedSpeed = Math.max(0.25, Math.min(8, speed));
+            element.playbackRate = clampedSpeed;
+            this.log(`Speed changed to ${clampedSpeed}x`);
         } else {
-            // Handle string-based operations ('faster', 'slower', 'normal')
             const currentSpeed = element.playbackRate;
-            const currentIndex = Controls.speeds.indexOf(currentSpeed);
+            const currentIndex = this.speeds.indexOf(currentSpeed);
             let newIndex;
 
             switch(speed) {
                 case 'faster':
-                    newIndex = Math.min(currentIndex + 1, Controls.speeds.length - 1);
+                    newIndex = Math.min(currentIndex + 1, this.speeds.length - 1);
                     break;
                 case 'slower':
                     newIndex = Math.max(currentIndex - 1, 0);
                     break;
                 case 'normal':
-                    newIndex = Controls.speeds.indexOf(1);
+                    newIndex = this.speeds.indexOf(1);
                     break;
                 default:
-                    // Try parsing the speed as a number if it's a string
-                    const numericSpeed = parseFloat(speed);
-                    if (!isNaN(numericSpeed)) {
-                        const clampedSpeed = Math.max(0.25, Math.min(8, numericSpeed));
-                        element.playbackRate = clampedSpeed;
-                        this.log(`Speed changed to ${clampedSpeed.toFixed(2)}x`);
-                        if (window.sidebar) {
-                            window.sidebar.update();
-                        }
-                        return;
-                    }
                     this.warn(`Invalid speed shift operation: ${speed}`);
                     return;
             }
-            element.playbackRate = Controls.speeds[newIndex];
-            this.log(`Speed changed to ${Controls.speeds[newIndex]}x`);
-        }
-
-        // Update sidebar if it exists
-        if (window.sidebar) {
-            window.sidebar.update();
+            element.playbackRate = this.speeds[newIndex];
+            this.log(`Speed changed to ${this.speeds[newIndex]}x`);
         }
     }
 
@@ -596,22 +235,24 @@ class Controls {
         reloadPatch(patchArray[nextIndex]);
     }
 
-    static togglePlay(element) {
+    static togglePlay() {
+        const element = this.focusedBuffer?.element;
         if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {
-            console.warn('Cannot toggle play: invalid element');
+            this.warn('Cannot toggle play: invalid element');
             return;
         }
 
         if (element.paused) {
-            element.play().catch(e => console.log('Play handled'));
+            element.play().catch(e => this.log('Play handled'));
         } else {
             element.pause();
         }
     }
 
-    static toggleMute(element) {
+    static toggleMute() {
+        const element = this.focusedBuffer?.element;
         if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {
-            console.warn('Cannot toggle mute: invalid element');
+            this.warn('Cannot toggle mute: invalid element');
             return;
         }
 
@@ -625,12 +266,11 @@ class Controls {
             }
         });
         Buffer.buffers[buffer].focus = true;
-        console.log(`Focused buffer ${buffer}`);
-        this.dirty = true;  // Mark grid for update
+        this.log(`Focused buffer ${buffer}`);
     }
 
     static switchCollection(direction = 'next') {
-        const focusedBuffer = Buffer.buffers.find(b => b.focus);
+        const focusedBuffer = this.focusedBuffer;
         if (!focusedBuffer) {
             this.warn('No buffer focused');
             return;
@@ -638,7 +278,6 @@ class Controls {
 
         this.log(`Switching collection: ${direction}`);
         
-        // Get array of collection names, filtering out empty collections
         const collectionNames = Array.from(collections.entries())
             .filter(([name, collection]) => collection.items.length > 0)
             .map(([name]) => name);
@@ -648,12 +287,10 @@ class Controls {
             return;
         }
 
-        // Find current collection index
         const currentIndex = collectionNames.indexOf(focusedBuffer.currentCollection?.name);
         let newIndex;
         
         if (currentIndex === -1) {
-            // If no current collection, start with the first one
             newIndex = 0;
         } else {
             switch(direction) {
@@ -664,7 +301,6 @@ class Controls {
                     newIndex = (currentIndex - 1 + collectionNames.length) % collectionNames.length;
                     break;
                 case 'random':
-                    // Ensure we don't get the same collection
                     do {
                         newIndex = Math.floor(Math.random() * collectionNames.length);
                     } while (newIndex === currentIndex && collectionNames.length > 1);
@@ -685,194 +321,9 @@ class Controls {
             this.error('Failed to switch collection:', error);
         }
     }
-
-    static async initializeGrid() {
-        // Add dynamic speed buttons
-        Controls.speeds.forEach((speed, index) => {
-            Controls.gridMapping[`4,${index + 4}`] = () => Controls.speedShift(speed);
-        });
-
-        // Add dynamic buffer focus buttons
-        Buffer.buffers.forEach((buffer, index) => {
-            Controls.gridMapping[`7,${index}`] = () => Controls.focus(index);
-        });
-
-        // Add dynamic collection buttons (skip empty collections)
-        const nonEmptyCollections = Array.from(collections.entries())
-            .filter(([name, collection]) => collection.items.length > 0);
-        nonEmptyCollections.forEach(([name, collection], index) => {
-            Controls.gridMapping[`3,${index + 4}`] = () => {
-                const focusedBuffer = Buffer.buffers.find(b => b.focus);
-                if (focusedBuffer) {
-                    focusedBuffer.setCollection(name);
-                    reloadActiveSource();
-                }
-            };
-        });
-
-        // Add dynamic patch buttons
-        Object.keys(patches).forEach((patch, index) => {
-            Controls.gridMapping[`2,${index + 4}`] = () => Controls.switchPatch(patch);
-        });
-
-        // Add timeline scrubbing controls
-        for (let x = 0; x < 16; x++) {
-            Controls.gridMapping[`0,${x}`] = () => {
-                const focusedBuffer = Buffer.buffers.find(b => b.focus);
-                if (focusedBuffer?.element?.duration) {
-                    const timePosition = (x / 15) * focusedBuffer.element.duration;
-                    focusedBuffer.element.currentTime = timePosition;
-                }
-            };
-        }
-
-        try {
-            this.log('GRID: Attempting WebSocket connection...');
-            this.ws = new WebSocket('ws://localhost:8080');
-
-            this.ws.onopen = () => {
-                this.log('WebSocket Connected to Grid');
-                this.gridEnabled = true;
-
-                // Initialize LED array
-                for (let y = 0; y < 8; y++) {
-                    this.led[y] = [];
-                    for (let x = 0; x < 16; x++) {
-                        this.led[y][x] = 0;
-                    }
-                }
-
-                // Start the refresh loop
-                this.startGridRefresh();
-                this.log('Grid refresh loop started');
-            };
-
-            this.ws.onclose = () => {
-                this.warn('WebSocket connection closed');
-                this.gridEnabled = false;
-            };
-
-            this.ws.onerror = (error) => {
-                this.error('WebSocket error:', error);
-                this.gridEnabled = false;
-            };
-
-            this.ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'gridKey') {
-                        this.handleGridPress(data.x, data.y, data.s);
-                    }
-                } catch (error) {
-                    this.error('Error processing WebSocket message:', error);
-                }
-            };
-
-        } catch (error) {
-            this.log('Grid initialization skipped:', error);
-            this.gridEnabled = false;
-        }
-    }
-
-    static handleGridPress(x, y, s) {
-        this.log('Handling grid press:', x, y, s);
-        
-        // Only handle button presses (s=1), not releases (s=0)
-        if (s === 1) {
-            const key = `${y},${x}`;
-            const handler = this.gridMapping[key];
-            
-            if (handler) {
-                this.log(`Executing grid command for ${key}`);
-                handler();
-                this.dirty = true;  // Mark grid for update
-            }
-        }
-    }
-
-    static startGridRefresh() {
-        const refresh = () => {
-            if (this.dirty && this.gridEnabled) {
-                // Clear all LEDs
-                for (let y = 0; y < 8; y++) {
-                    this.led[y] = [];
-                    for (let x = 0; x < 16; x++) {
-                        this.led[y][x] = 0;
-                    }
-                }
-
-                // Light up all mapped controls with mild brightness
-                Object.keys(this.gridMapping).forEach(key => {
-                    const [y, x] = key.split(',').map(Number);
-                    this.led[y][x] = 4;  // mild brightness
-                });
-
-                const focusedBuffer = Buffer.buffers.find(b => b.focus);
-
-                // Update buffer focus buttons
-                Buffer.buffers.forEach((buffer, index) => {
-                    this.led[7][index] = buffer.focus ? 15 : 4;
-                });
-
-                // Update speed buttons
-                if (focusedBuffer?.element) {
-                    const currentSpeed = focusedBuffer.element.playbackRate;
-                    Controls.speeds.forEach((speed, index) => {
-                        this.led[4][index + 4] = Math.abs(currentSpeed - speed) < 0.01 ? 15 : 4;
-                    });
-
-                    // Update collection buttons
-                    const currentCollection = focusedBuffer.currentCollection?.name;
-                    const nonEmptyCollections = Array.from(collections.entries())
-                        .filter(([name, collection]) => collection.items.length > 0);
-                    nonEmptyCollections.forEach(([name, collection], index) => {
-                        this.led[3][index + 4] = (name === currentCollection) ? 15 : 4;
-                    });
-                }
-
-                // Update patch buttons
-                const currentPatch = Object.keys(patches).indexOf(window.currentPatch);
-                Object.keys(patches).forEach((patch, index) => {
-                    this.led[2][index + 4] = (index === currentPatch) ? 15 : 4;
-                });
-
-                // Update grid
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.send(JSON.stringify({
-                        type: 'ledUpdate',
-                        led: this.led
-                    }));
-                }
-                this.dirty = false;
-            }
-            requestAnimationFrame(refresh);
-        };
-
-        refresh();
-        this.log('Grid refresh loop started');
-    }
-
-    static cleanup() {
-        if (this.ws) {
-            this.ws.close();
-        }
-    }
-
-    // Add timeupdate event listener to keep grid refreshing during playback
-    static addTimeUpdateListener(buffer) {
-        if (buffer.element && ['video', 'audio'].includes(buffer.filetype)) {
-            buffer.element.addEventListener('timeupdate', () => {
-                if (buffer.focus) {
-                    this.dirty = true;
-                }
-            });
-        }
-    }
 }
 
-// Add event listener for cleanup
+// Remove grid-related cleanup
 window.addEventListener('beforeunload', () => {
-    Controls.cleanup();
+    // Any remaining cleanup if needed
 });
-
-export { Controls };

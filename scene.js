@@ -5,6 +5,7 @@ import { Buffer } from './buffers.js';
 import { loadLibrary, getCollection } from './media.js';
 import { initBabbler } from './sheSpeaks.js';
 import { Controls } from './controls.js';
+import { Devices } from './devices.js';
 
 export class Scene {
     constructor(config = {}) {
@@ -80,18 +81,9 @@ export class Scene {
                 initBabbler('popup');
             }
 
-            // Initialize controls if specified
+            // Initialize devices if specified in config
             if (this.config.controls) {
-                if (this.config.controls.keyboard || this.config.controls.midi || 
-                    this.config.controls.grid) {
-                    Controls.init();
-                }
-                if (this.config.controls.midi || this.config.controls.midicc) {
-                    Controls.initializeMIDI();
-                }
-                if (this.config.controls.grid) {
-                    Controls.initializeGrid();
-                }
+                await Devices.init(this.config.controls);
             }
 
             // Initialize sidebar only if enabled in config

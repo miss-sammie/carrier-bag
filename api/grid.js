@@ -59,4 +59,17 @@ async function initGrid() {
     }
 }
 
-export { initGrid, gridEnabled }; 
+function cleanup() {
+    if (wss) {
+        console.log('Closing WebSocket server...');
+        wss.close(() => {
+            console.log('WebSocket server closed');
+        });
+    }
+    if (grid) {
+        console.log('Cleaning up grid...');
+        grid.close();
+    }
+}
+
+export { initGrid, gridEnabled, cleanup, wss }; 

@@ -34,8 +34,8 @@ app.use(express.static(__dirname));
 app.use('/library', express.static(join(__dirname, 'public', 'library')));
 console.log("Static file serving setup complete");
 
-console.log("Attempting to initialize grid...");
 // Initialize grid when server starts
+console.log("Attempting to initialize grid...");
 try {
     await initGrid();
     console.log("Grid initialization complete");
@@ -45,7 +45,7 @@ try {
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+    res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // Add API endpoint for library scanning
@@ -84,12 +84,12 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something broke!' });
 });
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-  console.log(`Serving files from: ${__dirname}`);
+    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Serving files from: ${__dirname}`);
 }); 
