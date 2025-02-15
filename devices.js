@@ -44,6 +44,9 @@ export class Devices {
     static async init(config = { keyboard: true, midi: true, midicc: true, grid: true }) {
         console.log('Initializing devices with config:', config);
         
+        // Make Devices globally available
+        window.Devices = Devices;
+        
         if (config.keyboard) {
             this.initKeyboard();
         }
@@ -137,7 +140,28 @@ export class Devices {
                 const nextPatch = Math.floor((value / 127) * patchArray.length) + 1;
                 switchPatch(nextPatch);
             },
-            38: (value) => {
+            38: (value) => {    
+                const focusedBuffer = Controls.focusedBuffer;
+                if (!focusedBuffer) return;
+
+                // Get array of non-empty collections
+                const nonEmptyCollections = Array.from(collections.entries())
+                    .filter(([name, collection]) => collection.items.length > 0)
+                    .map(([name]) => name);
+
+                if (nonEmptyCollections.length === 0) return;
+
+                // Map 0-127 to collection index
+                const index = Math.floor((value / 127) * nonEmptyCollections.length);
+                const newCollectionName = nonEmptyCollections[index];
+                
+                // Only switch if it's a different collection
+                if (newCollectionName !== focusedBuffer.currentCollection?.name) {
+                    focusedBuffer.setCollection(newCollectionName);
+                    reloadActiveSource();
+                }
+            },
+            39: (value) => {
                 if (value < 54) {
                     const normalizedValue = value / 54;
                     Controls.speedShift(0.25 + (normalizedValue * 0.75));
@@ -148,12 +172,23 @@ export class Devices {
                     Controls.speedShift(1);
                 }
             },
-            39: (value) => {
-                if (value < 54) {
-                    Controls.timeShift('backward');
-                } else if (value > 74) {
-                    Controls.timeShift('forward');
-                }
+            40: (value) => {
+                // Map 0-127 to 0-1 for timeline position
+                const normalizedValue = value / 127;
+                Controls.timeShift(normalizedValue);
+            },
+            41: (value) => {
+                const focusedBuffer = Controls.focusedBuffer;
+                if (!focusedBuffer?.currentCollection) return;
+                
+                const collection = focusedBuffer.currentCollection.items;
+                const length = collection.length;
+                if (length === 0) return;
+                
+                // Map 0-127 to 0-(length-1) and round to nearest index
+                const index = Math.floor((value / 127) * length);
+                focusedBuffer.currentIndex = index;
+                focusedBuffer.loadMedia(collection[index].url);
             }
         };
 

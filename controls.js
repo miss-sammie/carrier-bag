@@ -267,6 +267,11 @@ export class Controls {
         });
         Buffer.buffers[buffer].focus = true;
         this.log(`Focused buffer ${buffer}`);
+        
+        // Mark grid for update if connected
+        if (window.Devices?.gridEnabled) {
+            window.Devices.dirty = true;
+        }
     }
 
     static switchCollection(direction = 'next') {
