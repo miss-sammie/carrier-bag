@@ -58,14 +58,23 @@ class Buffer {
         // Find media object
         const mediaObj = this.currentCollection.items.find(m => m.url === url);
         if (!mediaObj) {
+            console.error(`Media not found in library: ${url}`);
             throw new Error(`Media not found in library: ${url}`);
         }
 
         try {
+            console.log(`[Buffer ${this.slot}] Loading media:`, {
+                url,
+                type: mediaObj.type,
+                currentElement: this.element?.tagName,
+                collection: this.currentCollection.name
+            });
+
             let needNewElement = false;
             
             // Check if we need to create a new element
             if (!this.element) {
+                console.log(`[Buffer ${this.slot}] No existing element, creating new one`);
                 needNewElement = true;
             } else {
                 // Check if we need a different type of element
@@ -73,12 +82,18 @@ class Buffer {
                 const needsTag = mediaObj.type === 'video' ? 'video' : 
                                mediaObj.type === 'audio' ? 'audio' : 'img';
                 needNewElement = currentTag !== needsTag;
+                console.log(`[Buffer ${this.slot}] Element type check:`, {
+                    currentTag,
+                    needsTag,
+                    needNewElement
+                });
             }
 
             // If we need a new element, create it
             if (needNewElement) {
                 // Clean up old element if it exists
                 if (this.element) {
+                    console.log(`[Buffer ${this.slot}] Cleaning up old element:`, this.element.tagName);
                     if (this.element.tagName === 'VIDEO' || this.element.tagName === 'AUDIO') {
                         this.element.pause();
                         this.element.src = '';
@@ -107,32 +122,44 @@ class Buffer {
                         break;
 
                     default:
+                        console.error(`[Buffer ${this.slot}] Unsupported media type:`, mediaObj.type);
                         throw new Error(`Unsupported media type: ${mediaObj.type}`);
                 }
 
+                console.log(`[Buffer ${this.slot}] Created new element:`, {
+                    type: this.filetype,
+                    element: this.element.tagName
+                });
+
                 // Only reload Hydra source if we created a new element and this buffer is focused
                 if (this.focus) {
+                    console.log(`[Buffer ${this.slot}] Reloading active source (buffer is focused)`);
                     reloadActiveSource();
                 }
             } else {
                 // If reusing element, pause if it's a media element
                 if (this.filetype === 'video' || this.filetype === 'audio') {
+                    console.log(`[Buffer ${this.slot}] Pausing existing media element`);
                     this.element.pause();
                 }
             }
 
             // Update the source
+            console.log(`[Buffer ${this.slot}] Setting source:`, url);
             this.element.src = url;
             
             // Start playing immediately for time-based media
             if (this.filetype === 'video' || this.filetype === 'audio') {
                 this.element.currentTime = 0;
-                this.element.play();
+                console.log(`[Buffer ${this.slot}] Attempting to play media`);
+                this.element.play().catch(error => {
+                    console.error(`[Buffer ${this.slot}] Play failed:`, error);
+                });
             }
 
             return this.element;
         } catch (error) {
-            console.warn('Media load failed:', error);
+            console.error(`[Buffer ${this.slot}] Media load failed:`, error);
             return null;
         }
     }

@@ -1,5 +1,5 @@
 const mediaLibrary = [];
-const DEBUG = false; // Debug flag - set to true to enable logging
+const DEBUG = true; // Debug flag - set to true to enable logging
 
 function log(...args) {
     if (DEBUG) console.log('[Media]', ...args);

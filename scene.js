@@ -1,4 +1,4 @@
-import { initHydra, reloadPatch, setPatches, webcams, currentCam, switchCam } from './hydra.js';
+import { initHydra, reloadPatch, setPatches } from './hydra.js';
 import { initializeTextOverlay } from './sheSpeaks.js';
 import { Sidebar } from './sidebar.js';
 import { Buffer } from './buffers.js';
@@ -33,7 +33,8 @@ export class Scene {
                 midicc: true,
                 grid: true
             },
-            patches: config.patches || {}
+            patches: config.patches || {},
+            savedStates: config.savedStates || []
         };
         
         this.hydra = null;
@@ -88,9 +89,9 @@ export class Scene {
 
             // Initialize sidebar only if enabled in config
             if (this.config.sidebarVisible) {
-                this.sidebar = new Sidebar({
-                    visible: this.config.sidebarVisible
-                });
+            this.sidebar = new Sidebar({
+                visible: this.config.sidebarVisible
+            });
             }
 
             console.log(`Scene "${this.config.name}" initialized`);
@@ -105,7 +106,7 @@ export class Scene {
     // Static method to load scene from JSON file
     static async load(sceneName) {
         try {
-            const response = await fetch(`./scenes/${sceneName}.json`);
+            const response = await fetch(`./library/scenes/${sceneName}.json`);
             if (!response.ok) {
                 throw new Error(`Failed to load scene: ${sceneName}`);
             }
@@ -121,7 +122,9 @@ export class Scene {
     async save() {
         const json = JSON.stringify(this.config, null, 2);
         try {
-            const response = await fetch(`./scenes/${this.config.name}.json`, {
+            // Use exact case from scene name
+            const sceneName = this.config.name;
+            const response = await fetch(`/library/scenes/${sceneName}.json`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -129,11 +132,277 @@ export class Scene {
                 body: json
             });
             if (!response.ok) {
-                throw new Error('Failed to save scene');
+                const errorText = await response.text();
+                throw new Error(`Failed to save scene: ${errorText}`);
             }
-            console.log(`Scene "${this.config.name}" saved`);
+            console.log(`Scene "${sceneName}" saved`);
         } catch (error) {
             console.error('Error saving scene:', error);
+            throw error;
+        }
+    }
+
+    captureState(stateName = new Date().toISOString()) {
+        const state = {
+            name: stateName,
+            timestamp: Date.now(),
+            currentPatch: window.currentPatch || 1,
+            bufferStates: this.buffers.map(buffer => ({
+                type: buffer.type,
+                focus: buffer.focus,
+                currentCollection: buffer.currentCollection?.name,
+                currentIndex: buffer.currentIndex,
+                currentTime: buffer.element?.currentTime || 0,
+                playbackRate: buffer.element?.playbackRate || 1,
+                muted: buffer.element?.muted || false,
+                paused: buffer.element?.paused || false
+            }))
+        };
+
+        // Add state to savedStates array
+        this.config.savedStates.push(state);
+        
+        // Save scene to persist the state
+        return this.save();
+    }
+
+    async loadState(stateNameOrIndex) {
+        const state = typeof stateNameOrIndex === 'number' 
+            ? this.config.savedStates[stateNameOrIndex]
+            : this.config.savedStates.find(s => s.name === stateNameOrIndex);
+
+        if (!state) {
+            throw new Error(`State "${stateNameOrIndex}" not found`);
+        }
+
+        // Load patch
+        if (state.currentPatch) {
+            reloadPatch(state.currentPatch);
+        }
+
+        // Load buffer states
+        await Promise.all(state.bufferStates.map(async (bufferState, index) => {
+            const buffer = this.buffers[index];
+            if (!buffer) return;
+
+            // Set collection if specified
+            if (bufferState.currentCollection) {
+                await buffer.setCollection(bufferState.currentCollection);
+            }
+
+            // Set focus
+            if (bufferState.focus) {
+                Controls.focus(index);
+            }
+
+            // Set current index/media if in a collection
+            if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
+                buffer.currentIndex = bufferState.currentIndex;
+                const media = buffer.currentCollection.items[bufferState.currentIndex];
+                if (media) {
+                    await buffer.loadMedia(media.url);
+                }
+            }
+
+            // Set media element properties
+            if (buffer.element) {
+                if (typeof bufferState.currentTime === 'number') {
+                    buffer.element.currentTime = bufferState.currentTime;
+                }
+                if (typeof bufferState.playbackRate === 'number') {
+                    buffer.element.playbackRate = bufferState.playbackRate;
+                }
+                buffer.element.muted = bufferState.muted;
+                if (!bufferState.paused) {
+                    buffer.element.play().catch(console.error);
+                }
+            }
+        }));
+
+        return state;
+    }
+
+    listStates() {
+        return this.config.savedStates.map((state, index) => ({
+            index,
+            name: state.name,
+            timestamp: state.timestamp
+        }));
+    }
+
+    removeState(stateNameOrIndex) {
+        const index = typeof stateNameOrIndex === 'number'
+            ? stateNameOrIndex
+            : this.config.savedStates.findIndex(s => s.name === stateNameOrIndex);
+
+        if (index === -1) {
+            throw new Error(`State "${stateNameOrIndex}" not found`);
+        }
+
+        this.config.savedStates.splice(index, 1);
+        return this.save();
+    }
+
+    async newPlaylist(playlistName) {
+        const playlist = {
+            name: playlistName,
+            created: Date.now(),
+            states: []
+        };
+
+        try {
+            const response = await fetch(`/library/playlists/${playlistName}.json`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(playlist, null, 2)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to create playlist: ${await response.text()}`);
+            }
+            
+            return playlist;
+        } catch (error) {
+            console.error('Error creating playlist:', error);
+            throw error;
+        }
+    }
+
+    async loadPlaylist(playlistName) {
+        try {
+            const response = await fetch(`/library/playlists/${playlistName}.json`);
+            if (!response.ok) {
+                throw new Error(`Failed to load playlist: ${playlistName}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error(`Error loading playlist ${playlistName}:`, error);
+            throw error;
+        }
+    }
+
+    async saveStateToPlaylist(playlistName, stateName = new Date().toISOString()) {
+        try {
+            // Load existing playlist
+            const playlist = await this.loadPlaylist(playlistName);
+            
+            // Create state with scene info
+            const state = {
+                name: stateName,
+                timestamp: Date.now(),
+                scene: this.config.name,
+                currentPatch: window.currentPatch || 1,
+                bufferStates: this.buffers.map(buffer => ({
+                    type: buffer.type,
+                    focus: buffer.focus,
+                    currentCollection: buffer.currentCollection?.name,
+                    currentIndex: buffer.currentIndex,
+                    currentTime: buffer.element?.currentTime || 0,
+                    playbackRate: buffer.element?.playbackRate || 1,
+                    muted: buffer.element?.muted || false,
+                    paused: buffer.element?.paused || false
+                }))
+            };
+
+            // Add state to playlist
+            playlist.states.push(state);
+
+            // Save updated playlist
+            const response = await fetch(`/library/playlists/${playlistName}.json`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(playlist, null, 2)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to save state to playlist: ${await response.text()}`);
+            }
+
+            return state;
+        } catch (error) {
+            console.error('Error saving state to playlist:', error);
+            throw error;
+        }
+    }
+
+    async loadStateFromPlaylist(playlistName, stateNameOrIndex) {
+        try {
+            const playlist = await this.loadPlaylist(playlistName);
+            
+            const state = typeof stateNameOrIndex === 'number' 
+                ? playlist.states[stateNameOrIndex]
+                : playlist.states.find(s => s.name === stateNameOrIndex);
+
+            if (!state) {
+                throw new Error(`State "${stateNameOrIndex}" not found in playlist`);
+            }
+
+            // If state is from a different scene, load that scene first
+            if (state.scene && state.scene !== this.config.name) {
+                const newScene = await Scene.load(state.scene);
+                await newScene.initialize();
+            }
+
+            // Load patch
+            if (state.currentPatch) {
+                reloadPatch(state.currentPatch);
+            }
+
+            // Load buffer states
+            await Promise.all(state.bufferStates.map(async (bufferState, index) => {
+                const buffer = this.buffers[index];
+                if (!buffer) return;
+
+                if (bufferState.currentCollection) {
+                    await buffer.setCollection(bufferState.currentCollection);
+                }
+
+                if (bufferState.focus) {
+                    Controls.focus(index);
+                }
+
+                if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
+                    buffer.currentIndex = bufferState.currentIndex;
+                    const media = buffer.currentCollection.items[bufferState.currentIndex];
+                    if (media) {
+                        await buffer.loadMedia(media.url);
+                    }
+                }
+
+                if (buffer.element) {
+                    if (typeof bufferState.currentTime === 'number') {
+                        buffer.element.currentTime = bufferState.currentTime;
+                    }
+                    if (typeof bufferState.playbackRate === 'number') {
+                        buffer.element.playbackRate = bufferState.playbackRate;
+                    }
+                    buffer.element.muted = bufferState.muted;
+                    if (!bufferState.paused) {
+                        buffer.element.play().catch(console.error);
+                    }
+                }
+            }));
+
+            return state;
+        } catch (error) {
+            console.error('Error loading state from playlist:', error);
+            throw error;
+        }
+    }
+
+    async listPlaylists() {
+        try {
+            const response = await fetch('/library/playlists');
+            if (!response.ok) {
+                throw new Error('Failed to list playlists');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error listing playlists:', error);
             throw error;
         }
     }

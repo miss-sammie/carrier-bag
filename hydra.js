@@ -2,8 +2,6 @@ import { Controls } from './controls.js';
 
 // Initialize Hydra
 let resolutionMode = "high"  
-const webcams = [0,5,6]
-let currentCam = 0
 let currentPatch = 1
 
 function initHydra() {
@@ -49,9 +47,6 @@ function resizeHydraPatch() {
     }
   }
 
-  // Initial resize
-
-
 // Reload just the active source
 function reloadActiveSource() {
     if (!window.Buffer || !Array.isArray(window.Buffer)) {
@@ -80,10 +75,7 @@ function reloadActiveSource() {
 }
 
 function switchCam() {
-    currentCam = (currentCam + 1) % webcams.length
-    reloadPatch(currentPatch)
-    console.log("switching cam", currentCam, webcams[currentCam])
-   // s0.initCam(webcams[currentCam])
+    Controls.switchCam();
 }
 
 // Remove the hardcoded patches object and make it a variable that can be set
@@ -99,8 +91,8 @@ function reloadPatch(patch) {
     if (patchCode) {
         // Create a context with necessary variables
         const context = `
-            const webcams = ${JSON.stringify(webcams)};
-            const currentCam = ${currentCam};
+            const webcams = window.webcams || [0];
+            const currentCam = window.currentCam || 0;
             const Buffer = {
                 buffers: window.Buffer
             };
@@ -113,6 +105,7 @@ function reloadPatch(patch) {
         }`)();
         patchFunction();
         currentPatch = patch;
+        window.currentPatch = patch;
     } else {
         console.error(`Patch ${patch} not found`);
     }
@@ -121,13 +114,6 @@ function reloadPatch(patch) {
 // Add method to set patches from scene config
 function setPatches(newPatches) {
     patches = newPatches;
-}
-
-function switchPatch() {
-    const numPatches = Object.keys(patches).length;
-    currentPatch = (currentPatch % numPatches) + 1;  
-    reloadPatch(currentPatch);
-    console.log("reloading patch", currentPatch);
 }
 
 // Add a function to toggle resolution
@@ -144,10 +130,7 @@ export {
     resizeHydraPatch, 
     toggleResolution, 
     setPatches,  
-    currentCam, 
-    webcams, 
     switchCam, 
-    currentPatch, 
-    switchPatch,
+    currentPatch,
     patches
 };

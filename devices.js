@@ -1,5 +1,5 @@
 import { Controls } from './controls.js';
-import { switchCam, switchPatch, patches, currentPatch } from './hydra.js';
+import { switchCam, patches, currentPatch, reloadActiveSource, reloadPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
 import { collections } from './media.js';
 
@@ -11,6 +11,8 @@ export class Devices {
     static led = [];
     static dirty = true;
     static playheadInterval = null;
+    static webcams = [];
+    static currentCam = 0;
 
     // Define grid mapping as a static property
     static gridMapping = {
@@ -35,9 +37,9 @@ export class Devices {
         '3,2': () => Controls.switchCollection('random'),
 
         // Patch switching
-        '2,0': () => switchPatch('prev'),
-        '2,1': () => switchPatch('next'),
-        '2,2': () => switchPatch('random')
+        '2,0': () => Controls.switchPatch('prev'),
+        '2,1': () => Controls.switchPatch('next'),
+        '2,2': () => Controls.switchPatch('random')
     };
 
     // Initialize all devices based on scene config
@@ -46,6 +48,9 @@ export class Devices {
         
         // Make Devices globally available
         window.Devices = Devices;
+        
+        // Initialize webcams first
+        await this.initializeWebcams();
         
         if (config.keyboard) {
             this.initKeyboard();
@@ -59,6 +64,51 @@ export class Devices {
             await this.initializeGrid();
             this.setupDynamicGridControls();
         }
+    }
+
+    static async initializeWebcams() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            console.log('Found video devices:', videoDevices);
+            
+            // Filter for USB cameras and built-in cameras
+            this.webcams = videoDevices
+                .map((device, index) => ({
+                    index,
+                    label: device.label.toLowerCase(),
+                    isUSB: device.label.includes('USB') || device.label.includes('Camera')
+                }))
+                .filter(device => device.isUSB)
+                .map(device => device.index);
+
+            if (this.webcams.length === 0) {
+                // If no USB cameras found, include all video devices
+                this.webcams = videoDevices.map((_, index) => index);
+            }
+
+            console.log('Initialized webcams:', this.webcams);
+            
+            // Export webcams array to window for Hydra
+            window.webcams = this.webcams;
+            window.currentCam = this.currentCam;
+            
+        } catch (error) {
+            console.error('Error initializing webcams:', error);
+            // Fallback to default webcam array
+            this.webcams = [0];
+            window.webcams = this.webcams;
+            window.currentCam = 0;
+        }
+    }
+
+    // Internal method for managing webcam state
+    static switchWebcam() {
+        if (this.webcams.length === 0) return 0;
+        this.currentCam = (this.currentCam + 1) % this.webcams.length;
+        window.currentCam = this.currentCam;
+        return this.currentCam;
     }
 
     // Keyboard handling
@@ -79,8 +129,8 @@ export class Devices {
             'KeyX': () => Controls.speedShift('faster'),
             'KeyZ': () => Controls.speedShift('slower'),
             'KeyC': () => Controls.speedShift('normal'),
-            'KeyV': () => switchCam(),
-            'KeyB': () => switchPatch(),
+            'KeyV': () => Controls.switchCam(),
+            'KeyB': () => Controls.switchPatch('next'),
             'KeyT': () => Controls.switchCollection('prev'),
             'KeyY': () => Controls.switchCollection('random'),
         };
@@ -138,7 +188,7 @@ export class Devices {
             37: (value) => {    
                 const patchArray = Object.keys(patches);
                 const nextPatch = Math.floor((value / 127) * patchArray.length) + 1;
-                switchPatch(nextPatch);
+                Controls.switchPatch(nextPatch);
             },
             38: (value) => {    
                 const focusedBuffer = Controls.focusedBuffer;
@@ -383,7 +433,7 @@ export class Devices {
         const patchArray = Object.keys(patches);
         patchArray.forEach((patchName, index) => {
             this.gridMapping[`2,${index + 4}`] = () => {
-                reloadPatch(patchName);
+                Controls.switchPatch(patchName);
                 this.dirty = true;
             };
         });

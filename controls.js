@@ -1,5 +1,5 @@
 import { Buffer } from './buffers.js';
-import { reloadPatch, reloadActiveSource, patches, switchCam, switchPatch } from './hydra.js';
+import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection, collections } from './media.js';
 import { getPauseTime, setPauseTime } from './sheSpeaks.js';
 //import monomeGrid from './lib/monome-grid-wrapper.js';
@@ -198,9 +198,19 @@ export class Controls {
         }
     }
 
+    static switchCam() {
+        if (window.Devices) {
+            window.Devices.switchWebcam();
+            reloadPatch(window.currentPatch);
+            this.log(`Switched camera to index ${window.currentCam}`);
+        } else {
+            this.warn('Devices not initialized');
+        }
+    }
+
     static switchPatch(operation = 'next') {
         const patchArray = Object.keys(patches);
-        const currentIndex = patchArray.indexOf(window.currentPatch);
+        const currentIndex = patchArray.indexOf(window.currentPatch?.toString());
         let nextIndex;
 
         if (typeof operation === 'number') {
@@ -233,6 +243,7 @@ export class Controls {
         }
 
         reloadPatch(patchArray[nextIndex]);
+        this.log(`Switched to patch ${patchArray[nextIndex]}`);
     }
 
     static togglePlay() {
