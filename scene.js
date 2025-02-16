@@ -14,6 +14,7 @@ export class Scene {
             videoBuffers: config.videoBuffers || [0, 1],
             audioBuffers: config.audioBuffers || null,
             collections: config.collections || {},
+            folders: config.folders || null,
             babblerEnabled: config.babblerEnabled ?? true,
             hydraEnabled: config.hydraEnabled ?? true,
             sidebarVisible: config.sidebarVisible ?? false,
@@ -44,8 +45,8 @@ export class Scene {
 
     async initialize() {
         try {
-            // Load media library first
-            await loadLibrary();
+            // Load media library first with folder restrictions
+            await loadLibrary(this.config.folders);
 
             // Initialize buffers based on config
             const visualCount = this.config.videoBuffers || 0;

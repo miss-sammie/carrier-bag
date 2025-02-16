@@ -122,8 +122,8 @@ class MediaCollection {
     }
 }
 
-// Create default type-based collections
-function createDefaultCollections(mediaLibrary) {
+// Modify createDefaultCollections to respect folder restrictions
+function createDefaultCollections(mediaLibrary, allowedFolders = null) {
     log('Creating default collections...');
     
     // Create collections for each media type
@@ -135,23 +135,30 @@ function createDefaultCollections(mediaLibrary) {
         log(`Created type collection: ${name} with ${collection.items.length} items`);
     });
 
-    // Create collections for each folder
+    // Create collections only for allowed folders
     const uniqueFolders = [...new Set(mediaLibrary.map(media => media.folder))];
     log(`Found unique folders: ${uniqueFolders.join(', ')}`);
     
     uniqueFolders.forEach(folder => {
-        const collection = new MediaCollection(folder);
-        collection.items = MediaCollection.getMedia('folder', folder);
-        collections.set(folder, collection);
-        log(`Created folder collection: ${folder} with ${collection.items.length} items`);
+        // Only create folder collections for allowed folders
+        if (!allowedFolders || allowedFolders.includes(folder)) {
+            const collection = new MediaCollection(folder);
+            collection.items = MediaCollection.getMedia('folder', folder);
+            collections.set(folder, collection);
+            log(`Created folder collection: ${folder} with ${collection.items.length} items`);
+        } else {
+            log(`Skipping folder collection: ${folder} (not in allowed folders)`);
+        }
     });
 }
 
-// Modify loadLibrary to create default collections
-async function loadLibrary() {
+// Modify loadLibrary to accept folders parameter
+async function loadLibrary(folders = null) {
     log('Loading library...');
     try {
-        const response = await fetch('/api/library');
+        // Pass folders parameter in the URL if specified
+        const url = folders ? `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}` : '/api/library';
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -169,15 +176,15 @@ async function loadLibrary() {
         });
         log(`Created ${mediaLibrary.length} MediaObjects`);
         
-        // Create collections after all media is loaded
-        createDefaultCollections(mediaLibrary);
+        // Create collections after all media is loaded, passing the folders parameter
+        createDefaultCollections(mediaLibrary, folders);
         log('Library load complete');
         
         return mediaLibrary;
         
     } catch (error) {
         error("Error loading library:", error);
-        createDefaultCollections([]);
+        createDefaultCollections([], folders);
         return mediaLibrary;
     }
 }

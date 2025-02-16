@@ -70,10 +70,17 @@ app.get('/api/health', (req, res) => {
 // Add API endpoint for library scanning
 app.get('/api/library', async (req, res) => {
     try {
+        const folders = req.query.folders ? JSON.parse(req.query.folders) : null;
         const libraryPath = join(__dirname, 'public', 'library');
         const libraries = await readdir(libraryPath, { withFileTypes: true });
         
-        const subDirs = libraries.filter(dirent => dirent.isDirectory());
+        let subDirs = libraries.filter(dirent => dirent.isDirectory());
+        
+        // Filter directories if folders parameter is provided
+        if (folders && Array.isArray(folders)) {
+            subDirs = subDirs.filter(dirent => folders.includes(dirent.name));
+        }
+        
         const mediaFiles = [];
         
         for (const dir of subDirs) {

@@ -1,13 +1,18 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export async function scanLibrary() {
+export async function scanLibrary(folders = null) {
     try {
         const libraryPath = './public/library';
         const libraries = await readdir(libraryPath, { withFileTypes: true });
         
         // Get all subdirectories (these are our libraries)
-        const subDirs = libraries.filter(dirent => dirent.isDirectory());
+        let subDirs = libraries.filter(dirent => dirent.isDirectory());
+        
+        // If folders is specified, filter to only include those folders
+        if (folders && Array.isArray(folders)) {
+            subDirs = subDirs.filter(dirent => folders.includes(dirent.name));
+        }
         
         const mediaFiles = [];
         
