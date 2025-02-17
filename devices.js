@@ -476,8 +476,9 @@ export class Devices {
             'next (file|video|media)': () => Controls.switchFile('next'),
             'random (file|video|media)': () => Controls.switchFile('random'),
             'next collection': () => Controls.switchCollection('next'),
-            'back in time': () => Controls.timeShift('backward'),
-            'forward in time': () => Controls.timeShift('forward'),
+            'back': () => Controls.timeShift('backward'),
+            'forward': () => Controls.timeShift('forward'),
+            'replay': () => Controls.timeShift('reset'),
             'random time': () => Controls.timeShift('random'),
             'speed up': () => Controls.speedShift('faster'),
             'slow down': () => Controls.speedShift('slower'),
@@ -486,6 +487,13 @@ export class Devices {
             'next patch': () => Controls.switchPatch('next'),
             'previous collection': () => Controls.switchCollection('prev'),
             'random collection': () => Controls.switchCollection('random'),
+            'load patch (one|1)': () => Controls.switchPatch('1'),
+            'load patch (two|2)': () => Controls.switchPatch('2'),
+            'load patch (three|3)': () => Controls.switchPatch('3'),
+            'load patch (four|4)': () => Controls.switchPatch('4'),
+            'load patch (five|5)': () => Controls.switchPatch('5'),
+            'load patch (six|6)': () => Controls.switchPatch('6'),
+            
         };
 
         recognition.onresult = (event) => {
