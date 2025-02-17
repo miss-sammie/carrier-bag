@@ -237,8 +237,28 @@ export class Devices {
         // Handle note messages
         else if (status === 144 && velocity > 0) {
             const handler = {
+                12: () => Controls.switchFile('prev'),
+                11: () => Controls.switchFile('next'),
+                23: () => Controls.focus(0),
+                53: () => Controls.focus(1),
                 60: () => Controls.focus(0),
                 61: () => Controls.focus(1),
+                29: () => {
+                    Controls.focus(0)
+                    Controls.speedShift('slower')
+                },
+                28: () => {
+                    Controls.focus(0)
+                    Controls.speedShift('faster')
+                },
+                59: () => {
+                    Controls.focus(1)
+                    Controls.speedShift('slower')
+                },
+                58: () => {
+                    Controls.focus(1)
+                    Controls.speedShift('faster')
+                },
                 64: () => Controls.switchFile('prev'),
                 65: () => Controls.switchFile('next'),
                 66: () => Controls.switchFile('random'),
