@@ -13,6 +13,7 @@ export class Devices {
     static playheadInterval = null;
     static webcams = [];
     static currentCam = 0;
+    static cc = Array(128).fill(0.5);
 
     // Define grid mapping as a static property
     static gridMapping = {
@@ -46,10 +47,11 @@ export class Devices {
     static async init(config = { keyboard: true, midi: true, midicc: true, grid: true }) {
         console.log('Initializing devices with config:', config);
         
-        // Make Devices globally available
+        // Make Devices and cc array globally available immediately
         window.Devices = Devices;
-        
-        // Initialize webcams first
+        window.cc = this.cc; // Make cc array directly available to Hydra
+
+        // Rest of initialization
         await this.initializeWebcams();
         
         if (config.keyboard) {
@@ -169,85 +171,82 @@ export class Devices {
     static handleMIDIMessage(message, enableCC = true) {
         const [status, note, velocity] = message.data;
         
-        const midiMapping = {
-            60: () => Controls.focus(0),
-            61: () => Controls.focus(1),
-            64: () => Controls.switchFile('prev'),
-            65: () => Controls.switchFile('next'),
-            66: () => Controls.switchFile('random'),
-            67: () => Controls.timeShift('backward'),
-            68: () => Controls.timeShift('forward'),
-            69: () => Controls.timeShift('random'),
-            70: () => Controls.speedShift('slower'),
-            71: () => Controls.speedShift('faster'),
-            72: () => Controls.speedShift('normal'),
-        };
-
-        const midiCCMapping = {
-            42: (value) => Controls.setPauseTime(Math.floor((value / 127) * 3999) + 1),
-            37: (value) => {    
-                const patchArray = Object.keys(patches);
-                const nextPatch = Math.floor((value / 127) * patchArray.length) + 1;
-                Controls.switchPatch(nextPatch);
-            },
-            38: (value) => {    
-                const focusedBuffer = Controls.focusedBuffer;
-                if (!focusedBuffer) return;
-
-                // Get array of non-empty collections
-                const nonEmptyCollections = Array.from(collections.entries())
-                    .filter(([name, collection]) => collection.items.length > 0)
-                    .map(([name]) => name);
-
-                if (nonEmptyCollections.length === 0) return;
-
-                // Map 0-127 to collection index
-                const index = Math.floor((value / 127) * nonEmptyCollections.length);
-                const newCollectionName = nonEmptyCollections[index];
-                
-                // Only switch if it's a different collection
-                if (newCollectionName !== focusedBuffer.currentCollection?.name) {
-                    focusedBuffer.setCollection(newCollectionName);
-                    reloadActiveSource();
+        // Handle CC messages
+        if (status === 176 && enableCC) {
+            // Update normalized CC value
+            this.cc[note] = (velocity + 1) / 128.0;
+            
+            // Handle specific CC mappings
+            switch(note) {
+                case 42:
+                    Controls.setPauseTime(Math.floor((this.cc[note] * 3999) + 1));
+                    break;
+                case 37: {
+                    const patchArray = Object.keys(patches);
+                    Controls.switchPatch(Math.floor((this.cc[note] * patchArray.length) + 1));
+                    break;
                 }
-            },
-            39: (value) => {
-                if (value < 54) {
-                    const normalizedValue = value / 54;
-                    Controls.speedShift(0.25 + (normalizedValue * 0.75));
-                } else if (value > 74) {
-                    const normalizedValue = (value - 74) / (127 - 74);
-                    Controls.speedShift(1 + (normalizedValue * 7));
-                } else {
-                    Controls.speedShift(1);
+                case 38: {
+                    const focusedBuffer = Controls.focusedBuffer;
+                    if (!focusedBuffer) return;
+                    const nonEmptyCollections = Array.from(collections.entries())
+                        .filter(([name, collection]) => collection.items.length > 0)
+                        .map(([name]) => name);
+                    if (nonEmptyCollections.length === 0) return;
+                    const index = Math.floor(this.cc[note] * nonEmptyCollections.length);
+                    const newCollectionName = nonEmptyCollections[index];
+                    if (newCollectionName !== focusedBuffer.currentCollection?.name) {
+                        focusedBuffer.setCollection(newCollectionName);
+                        reloadActiveSource();
+                    }
+                    break;
                 }
-            },
-            40: (value) => {
-                // Map 0-127 to 0-1 for timeline position
-                const normalizedValue = value / 127;
-                Controls.timeShift(normalizedValue);
-            },
-            41: (value) => {
-                const focusedBuffer = Controls.focusedBuffer;
-                if (!focusedBuffer?.currentCollection) return;
-                
-                const collection = focusedBuffer.currentCollection.items;
-                const length = collection.length;
-                if (length === 0) return;
-                
-                // Map 0-127 to 0-(length-1) and round to nearest index
-                const index = Math.floor((value / 127) * length);
-                focusedBuffer.currentIndex = index;
-                focusedBuffer.loadMedia(collection[index].url);
+                case 39: {
+                    const val = this.cc[note] * 127;
+                    if (val < 54) {
+                        const normalizedValue = val / 54;
+                        Controls.speedShift(0.25 + (normalizedValue * 0.75));
+                    } else if (val > 74) {
+                        const normalizedValue = (val - 74) / (127 - 74);
+                        Controls.speedShift(1 + (normalizedValue * 7));
+                    } else {
+                        Controls.speedShift(1);
+                    }
+                    break;
+                }
+                case 40:
+                    Controls.timeShift(this.cc[note]); // Already normalized 0-1
+                    break;
+                case 41: {
+                    const focusedBuffer = Controls.focusedBuffer;
+                    if (!focusedBuffer?.currentCollection) return;
+                    const collection = focusedBuffer.currentCollection.items;
+                    const length = collection.length;
+                    if (length === 0) return;
+                    const index = Math.floor(this.cc[note] * length);
+                    focusedBuffer.currentIndex = index;
+                    focusedBuffer.loadMedia(collection[index].url);
+                    break;
+                }
             }
-        };
-
-        if (status === 144 && velocity > 0) { // Note on
-            const handler = midiMapping[note];
+        }
+        
+        // Handle note messages
+        else if (status === 144 && velocity > 0) {
+            const handler = {
+                60: () => Controls.focus(0),
+                61: () => Controls.focus(1),
+                64: () => Controls.switchFile('prev'),
+                65: () => Controls.switchFile('next'),
+                66: () => Controls.switchFile('random'),
+                67: () => Controls.timeShift('backward'),
+                68: () => Controls.timeShift('forward'),
+                69: () => Controls.timeShift('random'),
+                70: () => Controls.speedShift('slower'),
+                71: () => Controls.speedShift('faster'),
+                72: () => Controls.speedShift('normal')
+            }[note];
             if (handler) handler();
-        } else if (status === 176 && enableCC) { // Control Change (CC)
-            const handler = midiCCMapping[note];
-            if (handler) handler(velocity);
         }
     }
 

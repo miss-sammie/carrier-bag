@@ -96,6 +96,7 @@ function reloadPatch(patch) {
             const Buffer = {
                 buffers: window.Buffer
             };
+            const cc = window.Devices?.cc || Array(128).fill(0.5);
             ${patchCode}
         `;
         
