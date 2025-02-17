@@ -44,14 +44,13 @@ export class Devices {
     };
 
     // Initialize all devices based on scene config
-    static async init(config = { keyboard: true, midi: true, midicc: true, grid: true }) {
+    static async init(config = { keyboard: true, midi: true, midicc: true, grid: true, speech: true }) {
         console.log('Initializing devices with config:', config);
         
         // Make Devices and cc array globally available immediately
         window.Devices = Devices;
-        window.cc = this.cc; // Make cc array directly available to Hydra
+        window.cc = this.cc;
 
-        // Rest of initialization
         await this.initializeWebcams();
         
         if (config.keyboard) {
@@ -65,6 +64,10 @@ export class Devices {
         if (config.grid) {
             await this.initializeGrid();
             this.setupDynamicGridControls();
+        }
+
+        if (config.speech) {
+            this.initSpeechRecognition();
         }
     }
 
@@ -119,8 +122,8 @@ export class Devices {
         const keyMapping = {
             'Digit1': () => Controls.focus(0),
             'Digit2': () => Controls.focus(1),
-            'Digit3': () => Controls.focus(2),
-            'Digit4': () => Controls.focus(3),
+          //  'Digit3': () => Controls.focus(2),
+           // 'Digit4': () => Controls.focus(3),
             'KeyQ': () => Controls.switchFile('prev'),
             'KeyW': () => Controls.switchFile('next'),
             'KeyE': () => Controls.switchFile('random'),
@@ -451,6 +454,71 @@ export class Devices {
                 this.dirty = true;
             }
         }, 100); // Check every 100ms
+    }
+
+    static initSpeechRecognition() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            console.warn('Speech recognition not supported in this browser');
+            return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        const voiceCommands = {
+            'focus (one|1)': () => Controls.focus(0),
+            'focus (two|2)': () => Controls.focus(1),
+            'previous (file|video|media)': () => Controls.switchFile('prev'),
+            'next (file|video|media)': () => Controls.switchFile('next'),
+            'random (file|video|media)': () => Controls.switchFile('random'),
+            'next collection': () => Controls.switchCollection('next'),
+            'back in time': () => Controls.timeShift('backward'),
+            'forward in time': () => Controls.timeShift('forward'),
+            'random time': () => Controls.timeShift('random'),
+            'speed up': () => Controls.speedShift('faster'),
+            'slow down': () => Controls.speedShift('slower'),
+            'normal speed': () => Controls.speedShift('normal'),
+            'switch camera': () => Controls.switchCam(),
+            'next patch': () => Controls.switchPatch('next'),
+            'previous collection': () => Controls.switchCollection('prev'),
+            'random collection': () => Controls.switchCollection('random'),
+        };
+
+        recognition.onresult = (event) => {
+            const last = event.results.length - 1;
+            const command = event.results[last][0].transcript.trim().toLowerCase();
+            
+            console.log('Voice command received:', command);
+            
+            for (const [pattern, handler] of Object.entries(voiceCommands)) {
+                const regex = new RegExp(`^${pattern}$`);
+                if (regex.test(command)) {
+                    handler();
+                    break;
+                }
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+        };
+
+        recognition.onend = () => {
+            // Restart recognition when it ends
+            recognition.start();
+        };
+
+        // Start recognition
+        try {
+            recognition.start();
+            console.log('Speech recognition initialized');
+        } catch (error) {
+            console.error('Error starting speech recognition:', error);
+        }
     }
 }
 
