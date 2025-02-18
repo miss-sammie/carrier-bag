@@ -483,37 +483,196 @@ export class Devices {
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechGrammarList = window.SpeechGrammarList || window.webkitSpeechGrammarList;
         const recognition = new SpeechRecognition();
-        
+        const grammarList = new SpeechGrammarList();
+
+        // Define grammar in JSGF format
+        const grammar = `#JSGF V1.0;
+            grammar commands;
+            
+            <number> = one | two | three | four | five | six | seven | eight | nine | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+            <direction> = next | previous | prev | random | forward | backward | back;
+            <media> = file | video | media | audio;
+            <speed> = faster | slower | normal | up | down | speed up | slow down;
+            <toggle> = show | hide | toggle;
+            <collection> = collection | playlist;
+            <patch> = patch | effect;
+            
+            public <command> = focus <number> |
+                             (switch to | change to | go to) <direction> <media> |
+                             (switch | change) <direction> <collection> |
+                             (switch to | change to | load) <collection> <number> |
+                             (speed | play | go) <speed> |
+                             (time | seek | jump) <direction> |
+                             <toggle> (the) overlay |
+                             <toggle> (the) console |
+                             (switch | change) camera |
+                             (load | switch to) <patch> <number> |
+                             (play | pause | toggle) (playback | media) |
+                             (mute | unmute | toggle sound) |
+                             reset (time | playback) |
+                             random time;`;
+
+        grammarList.addFromString(grammar, 1);
+        recognition.grammars = grammarList;
         recognition.continuous = true;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
+        // Comprehensive command mapping that preserves existing structure
         const voiceCommands = {
-            'focus (one|1)': () => Controls.focus(0),
-            'focus (two|2)': () => Controls.focus(1),
-            'previous (file|video|media)': () => Controls.switchFile('prev'),
-            'next (file|video|media)': () => Controls.switchFile('next'),
-            'random (file|video|media)': () => Controls.switchFile('random'),
-            'next collection': () => Controls.switchCollection('next'),
-            'back': () => Controls.timeShift('backward'),
-            'forward': () => Controls.timeShift('forward'),
-            'replay': () => Controls.timeShift('reset'),
+            // Buffer focus commands
+            'focus (\\d+|one|two|three|four|five|six|seven|eight|nine)': (match) => {
+                const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+                let num;
+                
+                // Get the captured value and convert to lowercase for consistency
+                const value = match[1].toLowerCase();
+                
+                // Check if it's a digit
+                if (/^\d+$/.test(value)) {
+                    num = parseInt(value) - 1;  // Convert to 0-based index
+                } else {
+                    // It's a word
+                    num = numberWords.indexOf(value);
+                }
+                
+                console.log('Focus command:', {
+                    input: value,
+                    parsedIndex: num,
+                    bufferCount: Buffer.buffers.length
+                });
+                
+                // Only focus if the buffer exists
+                if (Buffer.buffers && num >= 0 && num < Buffer.buffers.length) {
+                    console.log('Focusing buffer:', num);
+                    Controls.focus(num);
+                } else {
+                    console.warn(`Buffer ${num + 1} does not exist. Available buffers: ${Buffer.buffers ? Buffer.buffers.length : 0}`);
+                }
+            },
+
+            // File switching commands
+            '(?:switch to |change to |go to )?(previous|prev|next|random)(?: file| video| media)?': (match) => {
+                const focusedBuffer = Controls.focusedBuffer;
+                if (!focusedBuffer) {
+                    console.warn('No buffer focused');
+                    return;
+                }
+                if (!focusedBuffer.currentCollection?.items?.length) {
+                    console.warn('No collection loaded or collection is empty');
+                    return;
+                }
+                
+                // Normalize the direction command
+                let direction = match[1].toLowerCase();
+                if (direction === 'previous' || direction === 'prev') {
+                    direction = 'prev';
+                }
+                
+                console.log('Switching file:', {
+                    direction,
+                    currentIndex: focusedBuffer.currentIndex,
+                    collectionLength: focusedBuffer.currentCollection.items.length
+                });
+                
+                Controls.switchFile(direction);
+            },
+
+            // Collection switching commands - both directional and index-based
+            '(?:switch |change )?(?:to )?(previous|prev|next|random)(?: collection| playlist)': (match) =>
+                Controls.switchCollection(match[1] === 'prev' ? 'prev' : match[1]),
+
+            '(?:switch to |change to |load )(?:collection |playlist )(\\d+|one|two|three|four|five|six|seven|eight|nine)': (match) => {
+                const numberWords = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+                let num;
+                
+                // Get the captured value and convert to lowercase for consistency
+                const value = match[1].toLowerCase();
+                
+                // Check if it's a digit
+                if (/^\d+$/.test(value)) {
+                    num = parseInt(value) - 1;  // Convert to 0-based index
+                } else {
+                    // It's a word
+                    num = numberWords.indexOf(value);
+                }
+                
+                // Get available non-empty collections
+                const nonEmptyCollections = Array.from(collections.entries())
+                    .filter(([name, collection]) => collection.items.length > 0)
+                    .map(([name]) => name);
+                
+                console.log('Collection switch command:', {
+                    input: value,
+                    parsedIndex: num,
+                    availableCollections: nonEmptyCollections.length
+                });
+                
+                // Only switch if the collection exists
+                if (nonEmptyCollections.length > 0 && num >= 0 && num < nonEmptyCollections.length) {
+                    const focusedBuffer = Controls.focusedBuffer;
+                    if (focusedBuffer) {
+                        console.log('Switching to collection:', nonEmptyCollections[num]);
+                        focusedBuffer.setCollection(nonEmptyCollections[num]);
+                        reloadActiveSource();
+                    } else {
+                        console.warn('No buffer focused');
+                    }
+                } else {
+                    console.warn(`Collection ${num + 1} does not exist. Available collections: ${nonEmptyCollections.length}`);
+                }
+            },
+
+            // Time control commands
+            '(?:time |seek |jump )?(forward|backward|back)': (match) =>
+                Controls.timeShift(match[1] === 'back' ? 'backward' : match[1]),
+            'reset(?: time| playback)?': () => Controls.timeShift('reset'),
             'random time': () => Controls.timeShift('random'),
-            'speed up': () => Controls.speedShift('faster'),
-            'slow down': () => Controls.speedShift('slower'),
-            'normal speed': () => Controls.speedShift('normal'),
-            'switch camera': () => Controls.switchCam(),
-            'next patch': () => Controls.switchPatch('next'),
-            'previous collection': () => Controls.switchCollection('prev'),
-            'random collection': () => Controls.switchCollection('random'),
-            'load patch (one|1)': () => Controls.switchPatch('1'),
-            'load patch (two|2)': () => Controls.switchPatch('2'),
-            'load patch (three|3)': () => Controls.switchPatch('3'),
-            'load patch (four|4)': () => Controls.switchPatch('4'),
-            'load patch (five|5)': () => Controls.switchPatch('5'),
-            'load patch (six|6)': () => Controls.switchPatch('6'),
-            
+
+            // Speed control commands
+            '(?:speed |play |go )?(faster|slower|normal|up|down|speed up|slow down)': (match) => {
+                const speedMap = { 
+                    'up': 'faster', 
+                    'down': 'slower',
+                    'speed up': 'faster',
+                    'slow down': 'slower'
+                };
+                Controls.speedShift(speedMap[match[1]] || match[1]);
+            },
+
+            // Patch commands
+            '(?:load |switch to )?(?:patch |effect )(\\d+|one|two|three|four|five|six)': (match) => {
+                const numberWords = ['one', 'two', 'three', 'four', 'five', 'six'];
+                const num = match[1].match(/^\d+$/) ? 
+                    match[1] : // If it's already a digit string
+                    (numberWords.indexOf(match[1]) + 1).toString(); // Convert word to number string
+                
+                console.log('Loading patch:', num);
+                Controls.switchPatch(num);
+            },
+
+            // Patch directional commands
+            '(?:load |switch to )?(?:the )?(next|previous|prev|random)(?: patch| effect)?': (match) => {
+                const direction = match[1].toLowerCase();
+                if (direction === 'previous' || direction === 'prev') {
+                    Controls.switchPatch('prev');
+                } else {
+                    Controls.switchPatch(direction);
+                }
+            },
+
+            // Camera control
+            '(?:switch |change )?camera': () => Controls.switchCam(),
+
+            // Overlay and console commands
+            '(show|hide|toggle)(?: the)? overlay': (match) => Controls.toggleOverlay(),
+            '(show|hide|toggle)(?: the)? console': (match) => Controls.toggleConsole(),
+
+            // Playback controls
+            '(play|pause|toggle)(?: playback| media)?': () => Controls.togglePlay(),
+            '(mute|unmute|toggle sound)': () => Controls.toggleMute()
         };
 
         recognition.onresult = (event) => {
@@ -522,13 +681,37 @@ export class Devices {
             
             console.log('Voice command received:', command);
             
-            for (const [pattern, handler] of Object.entries(voiceCommands)) {
-                const regex = new RegExp(`^${pattern}$`);
-                if (regex.test(command)) {
-                    handler();
-                    break;
+            // Split commands by 'and' or 'then'
+            const commands = command.split(/\s+(?:and|then)\s+/);
+            console.log('Parsed commands:', commands);
+            
+            // Process each command in sequence
+            commands.forEach((singleCommand, index) => {
+                // Trim each command to remove any extra whitespace
+                singleCommand = singleCommand.trim();
+                console.log(`Processing command ${index + 1}/${commands.length}:`, singleCommand);
+                
+                // Try to match and execute each command
+                let commandExecuted = false;
+                for (const [pattern, handler] of Object.entries(voiceCommands)) {
+                    const regex = new RegExp(`^${pattern}$`, 'i');
+                    const match = singleCommand.match(regex);
+                    if (match) {
+                        // If this isn't the last command, add a small delay
+                        if (index < commands.length - 1) {
+                            setTimeout(() => handler(match), index * 200);
+                        } else {
+                            handler(match);
+                        }
+                        commandExecuted = true;
+                        break;
+                    }
                 }
-            }
+                
+                if (!commandExecuted) {
+                    console.warn(`No matching command found for: "${singleCommand}"`);
+                }
+            });
         };
 
         recognition.onerror = (event) => {
