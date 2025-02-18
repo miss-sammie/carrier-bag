@@ -80,7 +80,7 @@ export class Scene {
 
             // Initialize text overlay if enabled
             if (this.config.babblerEnabled) {
-                initBabbler('popup');
+                initBabbler('both');
             }
 
             // Initialize devices if specified in config

@@ -177,7 +177,7 @@ export function getPauseTime() {
 
 export function setPauseTime(time) {
     pauseTime = time;
-    console.log('Pause time set to:', pauseTime);
+    //console.log('Pause time set to:', pauseTime);
 }
 
 // Add the dictionary loading function
@@ -206,7 +206,7 @@ function findWordsInText(text) {
         let match;
         while ((match = regex.exec(text)) !== null) {
             const newWord = {
-                word: word,
+                word: word.toLowerCase(),
                 start: match.index,
                 end: match.index + word.length
             };
@@ -219,6 +219,10 @@ function findWordsInText(text) {
             
             if (!hasOverlap) {
                 foundWords.push(newWord);
+                // Check if this word is "no" and call the no function
+                if (newWord.word === 'no' && window.Controls?.no) {
+                    window.Controls.no();
+                }
             }
         }
     });
@@ -295,7 +299,19 @@ function postText(text) {
             white-space: nowrap;
             overflow: visible;
         `;
-        newText.innerHTML = displayText;
+        // Add highlight styling to the container
+        const highlightStyle = document.createElement('style');
+        highlightStyle.textContent = `
+            .highlight {
+                color: red;
+                font-weight: bold;
+                font-size: 130%;
+                margin: 0 0.2em;
+            }
+        `;
+        document.head.appendChild(highlightStyle);
+        
+        newText.innerHTML = displayText;  // Use innerHTML instead of textContent to preserve HTML
         textOverlayArray.push(newText);
         document.getElementById('textOverlayContainer').appendChild(newText);
     }

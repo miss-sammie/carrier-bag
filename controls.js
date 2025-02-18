@@ -1,7 +1,7 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
 import { MediaObject, mediaLibrary, getCollection, collections } from './media.js';
-import { getPauseTime, setPauseTime } from './sheSpeaks.js';
+import { getPauseTime, setPauseTime, initializeTextOverlay, toggleOverlay, toggleConsole } from './sheSpeaks.js';
 //import monomeGrid from './lib/monome-grid-wrapper.js';
 
 export class Controls {
@@ -10,13 +10,14 @@ export class Controls {
     static speeds = [0.25,0.5, 1, 2, 4];
     static switchOperations = ['next', 'prev', 'random'];
     static timeShiftInterval = 2
-    static DEBUG = false;  // Debug flag - set to true to enable logging
+    static noEnabled = true  
+    static DEBUG = false; 
 
     static autoIntervals = {
         switch: null,
         time: null,
         speed: null
-    };
+    }
 
     static createAutoInterval(type, callback, interval) {
         // Clear existing interval of this type if it exists
@@ -337,7 +338,31 @@ export class Controls {
             this.error('Failed to switch collection:', error);
         }
     }
+
+    static toggleOverlay() {
+        // First check if we need to switch from popup to overlay mode/
+        toggleOverlay();
+    }
+
+    static toggleConsole() {
+        toggleConsole();
+    }
+
+    static no() {
+        if(this.noEnabled) {
+            setTimeout(toggleOverlay(), 3000);
+            console.error('NO!!');
+            this.log('NO command received - paused all media and toggled overlay');
+        }
+    }
+
+    static setPauseTime(time) {
+        setPauseTime(time);
+    }
 }
+
+// Make Controls available globally
+window.Controls = Controls;
 
 // Remove grid-related cleanup
 window.addEventListener('beforeunload', () => {
