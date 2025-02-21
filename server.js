@@ -8,6 +8,10 @@ import { readdir } from 'node:fs/promises';
 import { scanLibrary } from './api/library.js';
 import { initGrid } from './api/grid.js';
 import fs from 'fs';
+import multer from 'multer';
+import { networkInterfaces } from 'os';
+import path from 'path';
+import bonjour from 'bonjour';
 
 console.log("Starting server initialization...");
 
@@ -50,6 +54,7 @@ console.log("Middleware setup complete");
 
 // Serve static files from both root directory and public folder
 app.use(express.static(__dirname));
+app.use(express.static(join(__dirname, 'public')));
 app.use('/library', express.static(join(__dirname, 'public', 'library')));
 console.log("Static file serving setup complete");
 
@@ -60,6 +65,43 @@ try {
     console.log("Grid initialization complete");
 } catch (error) {
     console.error("Error initializing grid:", error);
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        // Store all uploads in the uploads folder
+        const dest = path.join(__dirname, 'public', 'library', 'uploads');
+        cb(null, dest);
+    },
+    filename: function (req, file, cb) {
+        // Generate unique filename while preserving extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 500 * 1024 * 1024, // 500MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept video, audio, and image files
+        const type = file.mimetype.split('/')[0];
+        if (['video', 'audio', 'image'].includes(type)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only video, audio, and image files are allowed'));
+        }
+    }
+});
+
+// Make sure uploads directory exists
+const uploadsDir = join(__dirname, 'public', 'library', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory:', uploadsDir);
 }
 
 // Routes
@@ -176,14 +218,104 @@ app.get('/', (req, res) => {
     res.sendFile(join(__dirname, 'index.html'));
 });
 
+// Modify upload endpoint
+app.post('/upload', (req, res) => {
+    upload.single('file')(req, res, async (err) => {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).json({
+                success: false,
+                error: `Upload error: ${err.message}`
+            });
+        } else if (err) {
+            return res.status(400).json({
+                success: false,
+                error: err.message
+            });
+        }
+
+        try {
+            if (!req.file) {
+                throw new Error('No file uploaded');
+            }
+
+            // Construct the relative path
+            const relativePath = `/library/uploads/${req.file.filename}`;
+
+            // Trigger media library refresh to update collections
+            await scanLibrary();
+
+            res.json({
+                success: true,
+                file: req.file.filename,
+                path: relativePath
+            });
+        } catch (error) {
+            console.error('Upload error:', error);
+            res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+    });
+});
+
+// Add explicit route for upload page
+app.get('/upload.html', (req, res) => {
+    res.sendFile(join(__dirname, 'public', 'upload.html'));
+});
+
+// Update upload directories to include images
+const uploadDirs = ['videos', 'audios', 'images'].map(dir => 
+    join(__dirname, 'public', 'library', dir)
+);
+
+uploadDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created upload directory: ${dir}`);
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: 'Something broke!' });
 });
 
-// Start server
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-    console.log(`Serving files from: ${__dirname}`);
+// Get local IP address
+function getLocalIP() {
+    const nets = networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            // Skip internal and non-IPv4 addresses
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+// Initialize Bonjour/mDNS
+const mdns = bonjour();
+
+// Start server with mDNS advertising
+app.listen(port, '0.0.0.0', () => {
+    // Publish the service
+    mdns.publish({
+        name: 'waterdrop',
+        type: 'http',
+        port: port,
+        host: 'waterdrop.local'
+    });
+    
+    console.log(`Server running at http://waterdrop.local:${port}`);
+    console.log(`Upload page available at http://waterdrop.local:${port}/upload.html`);
+});
+
+// Clean up on exit
+process.on('SIGINT', () => {
+    mdns.unpublishAll(() => {
+        process.exit();
+    });
 }); 
