@@ -272,6 +272,14 @@ export class Controls {
     }
 
     static focus(buffer) {
+        // If buffer is null, toggle to next buffer
+        if (buffer === null) {
+            const currentFocusIndex = Buffer.buffers.findIndex(b => b.focus);
+            // Find next buffer index, wrapping around to 0 if at end
+            const nextIndex = (currentFocusIndex + 1) % Buffer.buffers.length;
+            buffer = nextIndex;  // Convert to the actual buffer index
+        }
+
         Buffer.buffers.forEach(b => {
             if (b.focus) {
                 b.focus = false;

@@ -11,7 +11,6 @@ import fs from 'fs';
 import multer from 'multer';
 import { networkInterfaces } from 'os';
 import path from 'path';
-import bonjour from 'bonjour';
 
 console.log("Starting server initialization...");
 
@@ -296,26 +295,10 @@ function getLocalIP() {
     return 'localhost';
 }
 
-// Initialize Bonjour/mDNS
-const mdns = bonjour();
+// Start server
+const ip = getLocalIP();
 
-// Start server with mDNS advertising
 app.listen(port, '0.0.0.0', () => {
-    // Publish the service
-    mdns.publish({
-        name: 'waterdrop',
-        type: 'http',
-        port: port,
-        host: 'waterdrop.local'
-    });
-    
-    console.log(`Server running at http://waterdrop.local:${port}`);
-    console.log(`Upload page available at http://waterdrop.local:${port}/upload.html`);
-});
-
-// Clean up on exit
-process.on('SIGINT', () => {
-    mdns.unpublishAll(() => {
-        process.exit();
-    });
+    console.log(`Server running at http://${ip}:${port}`);
+    console.log(`Upload page available at http://${ip}:${port}/upload.html`);
 }); 
