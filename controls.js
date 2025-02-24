@@ -286,19 +286,16 @@ export class Controls {
     }
 
     static focus(buffer) {
-        // If buffer is null, toggle to next buffer
-        if (buffer === null) {
+        // If buffer is undefined, cycle to next buffer
+        if (buffer === undefined) {
             const currentFocusIndex = Buffer.buffers.findIndex(b => b.focus);
-            // Find next buffer index, wrapping around to 0 if at end
-            const nextIndex = (currentFocusIndex + 1) % Buffer.buffers.length;
-            buffer = nextIndex;  // Convert to the actual buffer index
+            buffer = (currentFocusIndex === -1) ? 0 : (currentFocusIndex + 1) % Buffer.buffers.length;
         }
 
-        Buffer.buffers.forEach(b => {
-            if (b.focus) {
-                b.focus = false;
-            }
-        });
+        // Clear focus from all buffers
+        Buffer.buffers.forEach(b => b.focus = false);
+        
+        // Set focus on the selected buffer
         Buffer.buffers[buffer].focus = true;
         this.log(`Focused buffer ${buffer}`);
         

@@ -19,6 +19,7 @@ export class Devices {
     static DEBOUNCE_DELAY = 75;
     static CHILL_MODE = true;
     static CHILL_DELAY = 2000; // 2 seconds for chill mode
+    static kioskInterval = null;
 
     // Define grid mapping as a static property
     static gridMapping = {
@@ -161,6 +162,45 @@ export class Devices {
                 }
             });
         });
+    }
+
+    static initKioskMode(interval = 5000) {
+        console.log('Initializing kiosk mode with interval:', interval);
+        
+        // Clear any existing kiosk interval
+        if (this.kioskInterval) {
+            clearInterval(this.kioskInterval);
+        }
+
+        // Get all available keyboard functions
+        const keyFunctions = Object.values(this.gridMapping).filter(fn => typeof fn === 'function');
+        console.log('Kiosk mode key functions:', keyFunctions);
+        
+        // Start the interval
+        this.kioskInterval = setInterval(() => {
+            // Pick a random function from the available functions
+            const randomIndex = Math.floor(Math.random() * keyFunctions.length);
+            const randomFunction = keyFunctions[randomIndex];
+            
+            // Execute the random function
+            try {
+                Controls.focus();
+                randomFunction();
+                console.log('Kiosk mode executed random function');
+            } catch (error) {
+                console.error('Error in kiosk mode function execution:', error);
+            }
+        }, interval);
+
+        console.log('Kiosk mode initialized');
+    }
+
+    static stopKioskMode() {
+        if (this.kioskInterval) {
+            clearInterval(this.kioskInterval);
+            this.kioskInterval = null;
+            console.log('Kiosk mode stopped');
+        }
     }
 
     // MIDI handling
@@ -470,6 +510,8 @@ export class Devices {
         if (this.playheadInterval) {
             clearInterval(this.playheadInterval);
         }
+        // Add cleanup for kiosk mode
+        this.stopKioskMode();
     }
 
     // Add method to set up dynamic grid controls

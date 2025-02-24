@@ -18,6 +18,10 @@ export class Scene {
             babblerEnabled: config.babblerEnabled ?? true,
             hydraEnabled: config.hydraEnabled ?? true,
             sidebarVisible: config.sidebarVisible ?? false,
+            kioskMode: {
+                enabled: config.kioskMode?.enabled ?? false,
+                interval: config.kioskMode?.interval ?? 5000
+            },
             hydraConfig: config.hydraConfig || {
                 width: 1280,
                 height: 720,
@@ -90,6 +94,14 @@ export class Scene {
                 console.log('Initializing devices with config:', this.config.controls);
                 await Devices.init(this.config.controls);
             }
+            // Initialize kiosk mode if enabled (after controls are set up)
+            if (this.config.kioskMode?.enabled) {
+                console.log('Kiosk mode config found:', this.config.kioskMode);
+                Devices.initKioskMode(this.config.kioskMode.interval);
+            } else {
+                console.log('Kiosk mode not enabled in config');
+            }
+
 
             // Initialize sidebar only if enabled in config
             if (this.config.sidebarVisible) {
