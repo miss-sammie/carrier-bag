@@ -1,6 +1,6 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
-import { MediaObject, mediaLibrary, getCollection, collections } from './media.js';
+import { MediaObject, mediaLibrary, getCollection, collections, checkLibrary } from './media.js';
 import { getPauseTime, setPauseTime, initializeTextOverlay, toggleOverlay, toggleConsole } from './sheSpeaks.js';
 //import monomeGrid from './lib/monome-grid-wrapper.js';
 
@@ -190,6 +190,10 @@ export class Controls {
                 case 'normal':
                     newIndex = this.speeds.indexOf(1);
                     break;
+                case 'random':
+                    newIndex = Math.floor(Math.random() * this.speeds.length);
+                    break;
+
                 default:
                     this.warn(`Invalid speed shift operation: ${speed}`);
                     return;
@@ -200,13 +204,19 @@ export class Controls {
     }
 
     static switchCam() {
-        if (window.Devices) {
-            window.Devices.switchWebcam();
-            reloadPatch(window.currentPatch);
-            this.log(`Switched camera to index ${window.currentCam}`);
-        } else {
-            this.warn('Devices not initialized');
+        if (!window.Devices?.webcams?.length) {
+            this.warn('No webcams available');
+            return;
         }
+        
+        const previousCam = window.currentCam;
+        window.currentCam = (window.currentCam + 1) % window.Devices.webcams.length;
+        
+        // Reload the camera source in Hydra
+        reloadActiveSource('cam');
+        this.log(`Switched camera from ${previousCam} to ${window.currentCam}`);
+        
+        return window.currentCam;
     }
 
     static switchPatch(operation = 'next') {
@@ -247,6 +257,10 @@ export class Controls {
         this.log(`Switched to patch ${patchArray[nextIndex]}`);
     }
 
+    static async refreshLibrary() {
+        const newMediaInFolders = await checkLibrary(['uploads']);
+        console.log(`Found ${newMediaInFolders.length} new files in specified folders`);
+    }
     static togglePlay() {
         const element = this.focusedBuffer?.element;
         if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {

@@ -48,7 +48,24 @@ function resizeHydraPatch() {
   }
 
 // Reload just the active source
-function reloadActiveSource() {
+function reloadActiveSource(type) {
+    if (type === 'cam') {
+        s0.clear()
+        const cameraIndex = window.Devices.webcams[window.currentCam];
+        console.log('[Hydra] Reloading camera source:', {
+            type,
+            currentCam: window.currentCam,
+            webcamsArray: window.Devices.webcams,
+            selectedCameraIndex: cameraIndex,
+            currentSource: s0.src,  // Log current source state
+            currentDynamic: s0.dynamic,  // Log if source is dynamic
+            currentTexture: s0.tex  // Log current texture state
+        });
+        
+        s0.initCam(cameraIndex);
+        return;
+    }
+
     if (!window.Buffer || !Array.isArray(window.Buffer)) {
         console.warn('Buffer not properly initialized for reloadActiveSource');
         return;
@@ -74,9 +91,7 @@ function reloadActiveSource() {
     }
 }
 
-function switchCam() {
-    Controls.switchCam();
-}
+// Remove switchCam function since it's now in Controls
 
 // Remove the hardcoded patches object and make it a variable that can be set
 let patches = {};
@@ -89,14 +104,14 @@ function reloadPatch(patch) {
     
     const patchCode = patches[patch];
     if (patchCode) {
-        // Create a context with necessary variables
+        // Create a context with necessary variables, with proper fallbacks
         const context = `
-            const webcams = window.webcams || [0];
-            const currentCam = window.currentCam || 0;
+            const webcams = Array.isArray(window.webcams) ? window.webcams : [0];
+            const currentCam = typeof window.currentCam === 'number' ? window.currentCam : 0;
             const Buffer = {
-                buffers: window.Buffer
+                buffers: Array.isArray(window.Buffer) ? window.Buffer : []
             };
-            const cc = window.Devices?.cc || Array(128).fill(0.5);
+            const cc = Array.isArray(window.Devices?.cc) ? window.Devices.cc : Array(128).fill(0.5);
             ${patchCode}
         `;
         
@@ -131,7 +146,6 @@ export {
     resizeHydraPatch, 
     toggleResolution, 
     setPatches,  
-    switchCam, 
     currentPatch,
     patches
 };

@@ -1,5 +1,5 @@
 const mediaLibrary = [];
-const DEBUG = true; // Debug flag - set to true to enable logging
+const DEBUG = false; // Debug flag - set to true to enable logging
 
 function log(...args) {
     if (DEBUG) console.log('[Media]', ...args);
@@ -210,6 +210,64 @@ function getCollection(name) {
     return collection;
 }
 
+async function checkLibrary(folders = null) {
+    log('Checking for new files in library...');
+    try {
+        // Use the same URL construction as loadLibrary
+        const url = folders ? `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}` : '/api/library';
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const files = await response.json();
+        log(`Found ${files.length} total files on server`);
+
+        // Get current file URLs in the library
+        const existingUrls = new Set(mediaLibrary.map(media => media.url));
+        
+        // Find new files
+        const newFiles = files.filter(url => !existingUrls.has(url));
+        
+        if (newFiles.length === 0) {
+            log('No new files found');
+            return [];
+        }
+
+        log(`Found ${newFiles.length} new files`);
+        
+        // Create MediaObjects for new files
+        const newMediaObjects = newFiles.map(url => {
+            const mediaObj = new MediaObject(url);
+            mediaLibrary.push(mediaObj);
+            return mediaObj;
+        });
+
+        // Update existing collections with new media
+        for (const [name, collection] of collections.entries()) {
+            // For type-based collections (Videos, Images, etc.)
+            if (['Videos', 'Images', 'Audios', 'Shapes'].includes(name)) {
+                const type = name.toLowerCase().slice(0, -1); // Remove 's' and convert to lowercase
+                const newItemsForType = newMediaObjects.filter(media => media.type === type);
+                newItemsForType.forEach(media => collection.add(media));
+                log(`Added ${newItemsForType.length} items to ${name} collection`);
+            }
+            // For folder-based collections
+            else if (!folders || folders.includes(name)) {
+                const newItemsForFolder = newMediaObjects.filter(media => media.folder === name);
+                newItemsForFolder.forEach(media => collection.add(media));
+                log(`Added ${newItemsForFolder.length} items to ${name} folder collection`);
+            }
+        }
+
+        log('Library check complete');
+        return newMediaObjects;
+
+    } catch (error) {
+        error("Error checking library:", error);
+        return [];
+    }
+}
+
 export { 
     MediaObject, 
     MediaCollection,
@@ -217,5 +275,6 @@ export {
     loadLibrary,
     collections,
     createCollection,
-    getCollection
+    getCollection,
+    checkLibrary
 };

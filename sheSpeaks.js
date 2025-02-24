@@ -145,7 +145,7 @@ function createPopupWindow() {
                 word-wrap: break-word;
             }
             .highlight {
-                color: red;
+                color: pink;
                 font-weight: bold;
                 font-size: 130%;
                 margin: 0 0.2em;
@@ -249,7 +249,7 @@ function initializeTextOverlay() {
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        font-size: 72px;
+        font-size: 48px;
     `;
     document.body.appendChild(overlayContainer);
 
@@ -303,7 +303,7 @@ function postText(text) {
         const highlightStyle = document.createElement('style');
         highlightStyle.textContent = `
             .highlight {
-                color: red;
+                color: pink;
                 font-weight: bold;
                 font-size: 130%;
                 margin: 0 0.2em;

@@ -1,5 +1,5 @@
 import { Controls } from './controls.js';
-import { switchCam, patches, currentPatch, reloadActiveSource, reloadPatch } from './hydra.js';
+import { patches, currentPatch, reloadActiveSource, reloadPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
 import { collections } from './media.js';
 
@@ -14,6 +14,11 @@ export class Devices {
     static webcams = [];
     static currentCam = 0;
     static cc = Array(128).fill(0.5);
+    static debounceTimers = {};
+    static lastCCValues = {};
+    static DEBOUNCE_DELAY = 75;
+    static CHILL_MODE = true;
+    static CHILL_DELAY = 2000; // 2 seconds for chill mode
 
     // Define grid mapping as a static property
     static gridMapping = {
@@ -40,7 +45,12 @@ export class Devices {
         // Patch switching
         '2,0': () => Controls.switchPatch('prev'),
         '2,1': () => Controls.switchPatch('next'),
-        '2,2': () => Controls.switchPatch('random')
+        '2,2': () => Controls.switchPatch('random'),
+
+        // Chill mode
+        '7,15': () => Devices.toggleChillMode(),
+        '7,14': () => Controls.switchCam(),
+        '7,13': () => Controls.refreshLibrary()
     };
 
     // Initialize all devices based on scene config
@@ -108,22 +118,12 @@ export class Devices {
         }
     }
 
-    // Internal method for managing webcam state
-    static switchWebcam() {
-        if (this.webcams.length === 0) return 0;
-        this.currentCam = (this.currentCam + 1) % this.webcams.length;
-        window.currentCam = this.currentCam;
-        return this.currentCam;
-    }
-
     // Keyboard handling
     static initKeyboard() {
         console.log('Initializing keyboard controls');
         const keyMapping = {
             'Digit1': () => Controls.focus(0),
             'Digit2': () => Controls.focus(1),
-          //  'Digit3': () => Controls.focus(2),
-           // 'Digit4': () => Controls.focus(3),
             'KeyQ': () => Controls.switchFile('prev'),
             'KeyW': () => Controls.switchFile('next'),
             'KeyE': () => Controls.switchFile('random'),
@@ -138,6 +138,20 @@ export class Devices {
             'KeyB': () => Controls.switchPatch('next'),
             'KeyT': () => Controls.switchCollection('prev'),
             'KeyY': () => Controls.switchCollection('random'),
+            'Digit6': () => Controls.focus(0),
+            'Digit7': () => Controls.focus(1),
+            'KeyY': () => Controls.switchFile('prev'),
+            'KeyU': () => Controls.switchFile('next'),
+            'KeyI': () => Controls.switchFile('random'),
+            'KeyH  ': () => Controls.timeShift('backward'),
+            'KeyJ': () => Controls.timeShift('forward'),
+            'KeyK': () => Controls.timeShift('random'),
+            'KeyM': () => Controls.speedShift('faster'),
+            'KeyN': () => Controls.speedShift('slower'),
+            'Digit3': () => Controls.switchCam(),
+            'KeyP': () => Controls.switchPatch('next'),
+            'KeyO': () => Controls.switchPatch('prev'),
+            'KeyL': () => Controls.switchCollection('next')
         };
 
         Object.entries(keyMapping).forEach(([key, handler]) => {
@@ -171,6 +185,25 @@ export class Devices {
         }
     }
 
+    static debounceCC(note, value, callback) {
+        // Store the new value
+        this.lastCCValues[note] = value;
+        
+        // Clear existing timer if any
+        if (this.debounceTimers[note]) {
+            clearTimeout(this.debounceTimers[note]);
+        }
+        
+        // Set new timer
+        this.debounceTimers[note] = setTimeout(() => {
+            // Only execute if this is still the latest value
+            if (this.lastCCValues[note] === value) {
+                callback();
+            }
+            delete this.debounceTimers[note];
+        }, this.DEBOUNCE_DELAY);
+    }
+
     static handleMIDIMessage(message, enableCC = true) {
         const [status, note, velocity] = message.data;
         
@@ -186,7 +219,10 @@ export class Devices {
                     break;
                 case 37: {
                     const patchArray = Object.keys(patches);
-                    Controls.switchPatch(Math.floor((this.cc[note] * patchArray.length) + 1));
+                    // Debounce patch switching
+                    this.debounceCC(note, this.cc[note], () => {
+                        Controls.switchPatch(Math.floor((this.cc[note] * patchArray.length) + 1));
+                    });
                     break;
                 }
                 case 38: {
@@ -196,15 +232,20 @@ export class Devices {
                         .filter(([name, collection]) => collection.items.length > 0)
                         .map(([name]) => name);
                     if (nonEmptyCollections.length === 0) return;
-                    const index = Math.floor(this.cc[note] * nonEmptyCollections.length);
-                    const newCollectionName = nonEmptyCollections[index];
-                    if (newCollectionName !== focusedBuffer.currentCollection?.name) {
-                        focusedBuffer.setCollection(newCollectionName);
-                        reloadActiveSource();
-                    }
+                    
+                    // Debounce collection switching
+                    this.debounceCC(note, this.cc[note], () => {
+                        const index = Math.floor(this.cc[note] * nonEmptyCollections.length);
+                        const newCollectionName = nonEmptyCollections[index];
+                        if (newCollectionName !== focusedBuffer.currentCollection?.name) {
+                            focusedBuffer.setCollection(newCollectionName);
+                            reloadActiveSource();
+                        }
+                    });
                     break;
                 }
                 case 39: {
+                    // Speed changes execute immediately
                     const val = this.cc[note] * 127;
                     if (val < 54) {
                         const normalizedValue = val / 54;
@@ -218,7 +259,8 @@ export class Devices {
                     break;
                 }
                 case 40:
-                    Controls.timeShift(this.cc[note]); // Already normalized 0-1
+                    // Time shifting executes immediately
+                    Controls.timeShift(this.cc[note]);
                     break;
                 case 41: {
                     const focusedBuffer = Controls.focusedBuffer;
@@ -226,9 +268,13 @@ export class Devices {
                     const collection = focusedBuffer.currentCollection.items;
                     const length = collection.length;
                     if (length === 0) return;
-                    const index = Math.floor(this.cc[note] * length);
-                    focusedBuffer.currentIndex = index;
-                    focusedBuffer.loadMedia(collection[index].url);
+                    
+                    // Debounce file switching
+                    this.debounceCC(note, this.cc[note], () => {
+                        const index = Math.floor(this.cc[note] * length);
+                        focusedBuffer.currentIndex = index;
+                        focusedBuffer.loadMedia(collection[index].url);
+                    });
                     break;
                 }
             }
@@ -240,9 +286,6 @@ export class Devices {
                 12: () => Controls.switchFile('prev'),
                 11: () => Controls.switchFile('next'),
                 23: () => Controls.focus(0),
-                53: () => Controls.focus(1),
-                60: () => Controls.focus(0),
-                61: () => Controls.focus(1),
                 29: () => {
                     Controls.focus(0)
                     Controls.speedShift('slower')
@@ -259,17 +302,30 @@ export class Devices {
                     Controls.focus(1)
                     Controls.speedShift('faster')
                 },
-                64: () => Controls.switchFile('prev'),
-                65: () => Controls.switchFile('next'),
+                53: () => Controls.focus(1),
+                61: () => Controls.focus(0),
+                62: () => Controls.focus(1),
+                63: () => Controls.switchPatch('random'),
+                64: () => Controls.timeShift('random'),
+                65: () => Controls.speedShift('random'),
                 66: () => Controls.switchFile('random'),
                 67: () => Controls.timeShift('backward'),
-                68: () => Controls.timeShift('forward'),
-                69: () => Controls.timeShift('random'),
+                68: () => Controls.switchCam(),
+                69: () => Controls.switchPatch('next'),
                 70: () => Controls.speedShift('slower'),
                 71: () => Controls.speedShift('faster'),
-                72: () => Controls.speedShift('normal')
+                72: () => Controls.speedShift('normal'),
+                1: () => Controls.focus(),
             }[note];
-            if (handler) handler();
+
+            if (handler) {
+                if (this.CHILL_MODE) {
+                    // Use the same debounce mechanism but with CHILL_DELAY
+                    this.debounceCC(`note_${note}`, velocity, handler);
+                } else {
+                    handler();
+                }
+            }
         }
     }
 
@@ -730,6 +786,12 @@ export class Devices {
         } catch (error) {
             console.error('Error starting speech recognition:', error);
         }
+    }
+
+    static toggleChillMode() {
+        this.CHILL_MODE = !this.CHILL_MODE;
+        console.log(`Chill mode ${this.CHILL_MODE ? 'enabled' : 'disabled'}`);
+        return this.CHILL_MODE;
     }
 }
 

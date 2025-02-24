@@ -28,11 +28,13 @@ export class Scene {
                     className: "hydraCanvas"
                 }
             },
-            controls: config.controls || {
+            controls: {
                 keyboard: true,
                 midi: true,
                 midicc: true,
-                grid: true
+                grid: true,
+                speech: true,
+                ...config.controls // This will properly override defaults
             },
             patches: config.patches || {},
             savedStates: config.savedStates || []
@@ -85,6 +87,7 @@ export class Scene {
 
             // Initialize devices if specified in config
             if (this.config.controls) {
+                console.log('Initializing devices with config:', this.config.controls);
                 await Devices.init(this.config.controls);
             }
 
