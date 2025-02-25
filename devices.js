@@ -185,7 +185,12 @@ export class Devices {
             // Execute the random function
             try {
                 Controls.focus();
-                randomFunction();
+                const randomPatch = Math.floor(Math.random() * 3);
+                if (randomPatch === 2) {
+                    Controls.switchPatch('random');
+                } else {
+                    randomFunction();
+                }
                 console.log('Kiosk mode executed random function');
             } catch (error) {
                 console.error('Error in kiosk mode function execution:', error);
