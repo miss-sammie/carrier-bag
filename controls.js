@@ -1,6 +1,6 @@
 import { Buffer } from './buffers.js';
 import { reloadPatch, reloadActiveSource, patches } from './hydra.js';
-import { MediaObject, mediaLibrary, getCollection, collections, checkLibrary } from './media.js';
+import { MediaObject, mediaLibrary, getCollection, collections, checkLibrary, fetchRemoteMedia } from './media.js';
 import { getPauseTime, setPauseTime, initializeTextOverlay, toggleOverlay, toggleConsole } from './sheSpeaks.js';
 //import monomeGrid from './lib/monome-grid-wrapper.js';
 
@@ -261,6 +261,53 @@ export class Controls {
         const newMediaInFolders = await checkLibrary(['uploads']);
         console.log(`Found ${newMediaInFolders.length} new files in specified folders`);
     }
+
+    static async downloadRemoteMedia() {
+        // First, fetch the remote media information
+        const remoteItems = await fetchRemoteMedia(
+            'https://temporary-archive.site', 
+            '/api/media?directory=water%20drop', 
+            {
+                mode: 'cors'
+            }, 
+            'uploads'
+        );
+        
+        console.log(`Found ${remoteItems.length} files from remote source`);
+        
+        // To actually download files, you would need a server-side endpoint
+        // that can receive the files and save them to your local filesystem
+        if (remoteItems.length > 0) {
+            try {
+                const downloadRequest = await fetch('/api/download-remote-files', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        urls: remoteItems.map(item => item.url),
+                        targetFolder: 'uploads'
+                    })
+                });
+                
+                if (!downloadRequest.ok) {
+                    throw new Error(`Download failed: ${downloadRequest.status}`);
+                }
+                
+                const result = await downloadRequest.json();
+                console.log(`Downloaded ${result.downloadedCount} files to local uploads folder`);
+                
+                // Refresh local library to see the new files
+                await this.refreshLibrary();
+                
+            } catch (err) {
+                console.error("Error downloading remote files:", err);
+            }
+        }
+        
+        return remoteItems;
+    }
+
     static togglePlay() {
         const element = this.focusedBuffer?.element;
         if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {
@@ -377,6 +424,38 @@ export class Controls {
 
     static setPauseTime(time) {
         setPauseTime(time);
+    }
+
+    static async refreshRemoteLibrary() {
+        try {
+            // Fetch the list of remote media items
+            const response = await fetch('/api/fetch-remote-media', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    remoteUrl: 'https://temporary-archive.site',
+                    endpoint: '/api/media?directory=water%20drop',
+                    targetFolder: 'uploads'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log(`Downloaded ${result.downloadedCount} files to uploads folder`);
+            
+            // Refresh local library to see the new files
+            await this.refreshLibrary();
+            
+            return result.downloadedFiles;
+        } catch (err) {
+            console.error("Error downloading remote media:", err);
+            return [];
+        }
     }
 }
 

@@ -11,6 +11,8 @@ import fs from 'fs';
 import multer from 'multer';
 import { networkInterfaces } from 'os';
 import path from 'path';
+import fetch from 'node-fetch';
+import { pipeline } from 'stream/promises';
 
 console.log("Starting server initialization...");
 
@@ -272,6 +274,86 @@ uploadDirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
         console.log(`Created upload directory: ${dir}`);
+    }
+});
+
+// Add API endpoint for fetching remote media
+app.post('/api/fetch-remote-media', async (req, res) => {
+    try {
+        const { remoteUrl, endpoint, targetFolder } = req.body;
+        
+        console.log(`Fetching remote media from: ${remoteUrl}${endpoint}`);
+        
+        // Fetch the list of media from the remote server
+        const remoteResponse = await fetch(`${remoteUrl}${endpoint}`);
+        
+        if (!remoteResponse.ok) {
+            throw new Error(`Remote API error: ${remoteResponse.status}`);
+        }
+        
+        const remoteMedia = await remoteResponse.json();
+        console.log(`Found ${remoteMedia.length} media items on remote server`);
+        
+        // Create target directory if it doesn't exist
+        const targetDir = join(__dirname, 'public', 'library', targetFolder);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log(`Created target directory: ${targetDir}`);
+        }
+        
+        // Download each file
+        const downloadedFiles = [];
+        
+        for (const item of remoteMedia) {
+            const mediaUrl = item.url;
+            const filename = path.basename(mediaUrl);
+            const localPath = join(targetDir, filename);
+            
+            // Skip if file already exists
+            if (fs.existsSync(localPath)) {
+                console.log(`File already exists: ${filename}`);
+                continue;
+            }
+            
+            // Download the file
+            console.log(`Downloading ${mediaUrl} to ${localPath}`);
+            const fileResponse = await fetch(mediaUrl);
+            
+            if (!fileResponse.ok) {
+                console.error(`Failed to download ${mediaUrl}: ${fileResponse.status}`);
+                continue;
+            }
+            
+            // Save the file
+            await pipeline(
+                fileResponse.body,
+                fs.createWriteStream(localPath)
+            );
+            
+            downloadedFiles.push({
+                originalUrl: mediaUrl,
+                localUrl: `/library/${targetFolder}/${filename}`,
+                filename
+            });
+        }
+        
+        console.log(`Successfully downloaded ${downloadedFiles.length} files`);
+        
+        // Trigger media library refresh to update collections
+        await scanLibrary();
+        
+        res.json({
+            success: true,
+            downloadedCount: downloadedFiles.length,
+            downloadedFiles
+        });
+        
+    } catch (error) {
+        console.error('Error fetching remote media:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
 });
 

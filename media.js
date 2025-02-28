@@ -268,6 +268,117 @@ async function checkLibrary(folders = null) {
     }
 }
 
+/**
+ * Fetches media from a remote application and adds it to the library
+ * @param {string} remoteUrl - The base URL of the remote application
+ * @param {string} endpoint - The API endpoint to fetch media from
+ * @param {Object} options - Additional options for the fetch request
+ * @param {string} targetFolder - Optional folder to assign to all fetched media
+ * @returns {Array} - Array of new MediaObjects added to the library
+ */
+async function fetchRemoteMedia(remoteUrl, endpoint = '/api/media', options = {}, targetFolder = null) {
+    log(`Fetching media from remote source: ${remoteUrl}${endpoint}${targetFolder ? ` to folder: ${targetFolder}` : ''}`);
+    try {
+        // Construct the full URL
+        const url = `${remoteUrl}${endpoint}`;
+        
+        // Set up fetch options with defaults
+        const fetchOptions = {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                ...options.headers
+            },
+            mode: 'cors',
+            ...options
+        };
+        
+        // Make the request
+        const response = await fetch(url, fetchOptions);
+        
+        if (!response.ok) {
+            throw new Error(`Remote API error! status: ${response.status}`);
+        }
+        
+        // Parse the response - expecting an array of media URLs or objects
+        const remoteMedia = await response.json();
+        log(`Received ${remoteMedia.length} media items from remote source`);
+        
+        // Get current file URLs in the library
+        const existingUrls = new Set(mediaLibrary.map(media => media.url));
+        
+        // Process the remote media
+        const newMediaObjects = [];
+        
+        remoteMedia.forEach(item => {
+            // Handle both string URLs and objects with url property
+            const mediaUrl = typeof item === 'string' ? item : item.url;
+            
+            // Skip if already in library
+            if (existingUrls.has(mediaUrl)) {
+                log(`Skipping existing media: ${mediaUrl}`);
+                return;
+            }
+            
+            // Create new MediaObject
+            const mediaObj = new MediaObject(mediaUrl);
+            
+            // Override folder if targetFolder is specified
+            if (targetFolder) {
+                mediaObj.folder = targetFolder;
+                log(`Assigned media to folder: ${targetFolder}`);
+            }
+            
+            // Add additional metadata if available
+            if (typeof item === 'object') {
+                if (item.title) mediaObj.title = item.title;
+                if (item.contributor) mediaObj.setContributor(item.contributor);
+                // Use folder from metadata if provided and no targetFolder override
+                if (item.folder && !targetFolder) mediaObj.folder = item.folder;
+                // Add any other metadata fields as needed
+            }
+            
+            // Add to library
+            mediaLibrary.push(mediaObj);
+            newMediaObjects.push(mediaObj);
+        });
+        
+        log(`Added ${newMediaObjects.length} new media objects from remote source`);
+        
+        // Update collections with new media
+        for (const [name, collection] of collections.entries()) {
+            // For type-based collections (Videos, Images, etc.)
+            if (['Videos', 'Images', 'Audios', 'Shapes'].includes(name)) {
+                const type = name.toLowerCase().slice(0, -1); // Remove 's' and convert to lowercase
+                const newItemsForType = newMediaObjects.filter(media => media.type === type);
+                newItemsForType.forEach(media => collection.add(media));
+                log(`Added ${newItemsForType.length} items to ${name} collection`);
+            }
+            // For folder-based collections
+            else {
+                const newItemsForFolder = newMediaObjects.filter(media => media.folder === name);
+                newItemsForFolder.forEach(media => collection.add(media));
+                log(`Added ${newItemsForFolder.length} items to ${name} folder collection`);
+            }
+        }
+        
+        // If targetFolder is specified and not already a collection, create it
+        if (targetFolder && !collections.has(targetFolder) && newMediaObjects.length > 0) {
+            const folderCollection = new MediaCollection(targetFolder);
+            newMediaObjects.filter(media => media.folder === targetFolder)
+                .forEach(media => folderCollection.add(media));
+            collections.set(targetFolder, folderCollection);
+            log(`Created new folder collection: ${targetFolder}`);
+        }
+        
+        return newMediaObjects;
+        
+    } catch (err) {
+        error("Error fetching remote media:", err);
+        return [];
+    }
+}
+
 export { 
     MediaObject, 
     MediaCollection,
@@ -276,5 +387,6 @@ export {
     collections,
     createCollection,
     getCollection,
-    checkLibrary
+    checkLibrary,
+    fetchRemoteMedia
 };

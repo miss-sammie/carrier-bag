@@ -152,7 +152,8 @@ export class Devices {
             'Digit3': () => Controls.switchCam(),
             'KeyP': () => Controls.switchPatch('next'),
             'KeyO': () => Controls.switchPatch('prev'),
-            'KeyL': () => Controls.switchCollection('next')
+            'KeyL': () => Controls.switchCollection('next'),
+            'KeyG': () => Controls.refreshRemoteLibrary()
         };
 
         Object.entries(keyMapping).forEach(([key, handler]) => {
