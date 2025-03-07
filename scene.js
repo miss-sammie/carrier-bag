@@ -25,7 +25,7 @@ export class Scene {
             hydraConfig: config.hydraConfig || {
                 width: 1280,
                 height: 720,
-                detectAudio: true,
+                detectAudio: false,
                 enableStreamCapture: false,
                 canvas: {
                     id: "hydraCanvas",
@@ -65,6 +65,8 @@ export class Scene {
             // Initialize Hydra if enabled
             if (this.config.hydraEnabled) {
                 this.hydra = initHydra(this.config.hydraConfig);
+                window.hydra = this.hydra
+                await this.hydra.loadScript("./hydra-src.js")
             }
 
             // Set collections for each buffer and wait for them to load
@@ -80,6 +82,7 @@ export class Scene {
 
             // Only now set patches and load initial patch
             if (this.config.hydraEnabled) {
+
                 setPatches(this.config.patches);
                 reloadPatch(1);
             }
@@ -140,7 +143,7 @@ export class Scene {
         try {
             // Use exact case from scene name
             const sceneName = this.config.name;
-            const response = await fetch(`/library/scenes/${sceneName}.json`, {
+            const response = await fetch(`./library/scenes/${sceneName}.json`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

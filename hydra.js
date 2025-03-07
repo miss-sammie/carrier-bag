@@ -17,8 +17,8 @@ function initHydra() {
 
     // Set canvas attributes explicitly
     if (resolutionMode === "high") {
-        hydraCanvas.width = 1280;
-        hydraCanvas.height = 720;
+        hydraCanvas.width = 1920;
+        hydraCanvas.height = 1080;
     } else if (resolutionMode === "low") {
         hydraCanvas.width = 320;  // Or whatever "low" resolution you want
         hydraCanvas.height = 180; // Maintaining 16:9 aspect ratio
@@ -29,11 +29,12 @@ function initHydra() {
         detectAudio: true,
         enableStreamCapture: false,
         width: hydraCanvas.width,   // Match canvas resolution
-        height: hydraCanvas.height,  // Match canvas resolution
+        height: hydraCanvas.height, 
+        makeGlobal: true 
     });
-
     return hydra;
 }
+
 
 function resizeHydraPatch() {
     const width = window.innerWidth;
@@ -82,13 +83,14 @@ function reloadActiveSource(type) {
     if (source && source.src !== focusedBuffer.element) {
         switch(focusedBuffer.slot) {
             case 0:
-                s1.init({src: focusedBuffer.element});
+                s1.init({src: focusedBuffer.element, dynamic: true});
                 break;
             case 1:
-                s2.init({src: focusedBuffer.element});
+                s2.init({src: focusedBuffer.element, dynamic: true});
                 break;
         }
     }
+
 }
 
 // Remove switchCam function since it's now in Controls
