@@ -55,11 +55,27 @@ class Buffer {
     }
 
     async loadMedia(url) {
-        // Find media object
-        const mediaObj = this.currentCollection.items.find(m => m.url === url);
+        // Find media object in the current collection
+        let mediaObj = null;
+        
+        if (this.currentCollection && this.currentCollection.items) {
+            mediaObj = this.currentCollection.items.find(m => m.url === url);
+        }
+        
+        // If not found in the collection, search the entire library
         if (!mediaObj) {
-            console.error(`Media not found in library: ${url}`);
-            throw new Error(`Media not found in library: ${url}`);
+            mediaObj = mediaLibrary.find(m => m.url === url);
+            
+            if (!mediaObj) {
+                console.error(`Media not found in library: ${url}`);
+                throw new Error(`Media not found in library: ${url}`);
+            }
+            
+            // Optionally add to current collection for future reference
+            if (this.currentCollection) {
+                this.currentCollection.items.push(mediaObj);
+                this.currentIndex = this.currentCollection.items.length - 1;
+            }
         }
 
         try {
@@ -67,7 +83,7 @@ class Buffer {
                 url,
                 type: mediaObj.type,
                 currentElement: this.element?.tagName,
-                collection: this.currentCollection.name
+                collection: this.currentCollection?.name
             });
 
             let needNewElement = false;

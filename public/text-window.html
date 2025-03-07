@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Window</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #text-container {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        p {
+            font-size: 3rem;
+            margin: 20px;
+            padding: 20px;
+            max-width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <div id="text-container">
+        <p>Welcome to the text presentation. Use arrow keys to navigate.</p>
+        <p>This is an example paragraph. Replace this file with your own content.</p>
+        <p>Each paragraph will become a separate text state that you can navigate through.</p>
+        <p>You can assign functions and scene states to each text state.</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Function to request fullscreen
+            function requestFullscreen() {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.mozRequestFullScreen) { // Firefox
+                    elem.mozRequestFullScreen();
+                } else if (elem.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { // IE/Edge
+                    elem.msRequestFullscreen();
+                }
+            }
+
+            // Add event listener for the first user click
+            window.addEventListener('click', function handleFirstClick() {
+                requestFullscreen();
+                // Remove the event listener after the first click
+                window.removeEventListener('click', handleFirstClick);
+            });
+
+            // Listen for messages from the parent window
+            window.addEventListener('message', (event) => {
+                if (event.origin !== window.location.origin) {
+                    return;
+                }
+                
+                if (event.data.action === 'updateText') {
+                    updateText(event.data.text);
+                }
+            });
+
+            function updateText(text) {
+                const container = document.getElementById('text-container');
+                
+                // Clear previous content
+                container.innerHTML = '';
+                
+                // Create new paragraph
+                const p = document.createElement('p');
+                p.textContent = text;
+                
+                // Add to container
+                container.appendChild(p);
+                
+                // Fit text to container
+                fitTextToContainer(p);
+            }
+
+            function fitTextToContainer(element) {
+                let fontSize = 250;
+                element.style.fontSize = fontSize + 'px';
+                
+                while (
+                    (element.scrollHeight > element.parentElement.clientHeight ||
+                    element.scrollWidth > element.parentElement.clientWidth) &&
+                    fontSize > 12
+                ) {
+                    fontSize--;
+                    element.style.fontSize = fontSize + 'px';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 

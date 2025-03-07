@@ -457,6 +457,77 @@ export class Controls {
             return [];
         }
     }
+
+    static async switchFileByType(filters = {}) {
+        const focusedBuffer = this.focusedBuffer;
+        if (!focusedBuffer) {
+            this.warn('No buffer focused');
+            return;
+        }
+
+        // Get all media items from the entire library
+        const allMedia = mediaLibrary;
+        if (!allMedia || allMedia.length === 0) {
+            this.warn('Media library is empty');
+            return;
+        }
+
+        // Filter media based on provided criteria
+        let filteredMedia = [...allMedia]; // Start with all media
+
+        // Filter by type if specified
+        if (filters.type) {
+            const type = filters.type.toLowerCase();
+            filteredMedia = filteredMedia.filter(media => 
+                media.type && media.type.toLowerCase() === type
+            );
+        }
+
+        // Filter by folder if specified
+        if (filters.folder) {
+            const folder = filters.folder.toLowerCase();
+            filteredMedia = filteredMedia.filter(media => 
+                media.folder && media.folder.toLowerCase() === folder
+            );
+        }
+
+        // Filter by filename if specified (contains search, case insensitive)
+        if (filters.filename) {
+            const filename = filters.filename.toLowerCase();
+            filteredMedia = filteredMedia.filter(media => 
+                media.title && media.title.toLowerCase().includes(filename)
+            );
+        }
+
+        // Check if we have any matches
+        if (filteredMedia.length === 0) {
+            this.warn(`No media matches the filters: ${JSON.stringify(filters)}`);
+            return;
+        }
+
+        // Select a random item from the filtered results
+        const randomIndex = Math.floor(Math.random() * filteredMedia.length);
+        const selectedMedia = filteredMedia[randomIndex];
+
+        // Load the selected media directly
+        this.log(`Switching to media: ${selectedMedia.title} (${selectedMedia.type}) from folder: ${selectedMedia.folder}`);
+        
+        // If the buffer has a collection, try to find the media in it and update the index
+        if (focusedBuffer.currentCollection) {
+            const collectionIndex = focusedBuffer.currentCollection.items.findIndex(
+                media => media.url === selectedMedia.url
+            );
+            
+            if (collectionIndex !== -1) {
+                focusedBuffer.currentIndex = collectionIndex;
+                this.log(`Media found in current collection at index ${collectionIndex}`);
+            } else {
+                this.log(`Media not found in current collection, loading directly`);
+            }
+        }
+        
+        return focusedBuffer.loadMedia(selectedMedia.url);
+    }
 }
 
 // Make Controls available globally

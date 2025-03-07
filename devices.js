@@ -2,6 +2,7 @@ import { Controls } from './controls.js';
 import { patches, currentPatch, reloadActiveSource, reloadPatch } from './hydra.js';
 import { Buffer } from './buffers.js';
 import { collections } from './media.js';
+import textController from './textController.js';
 
 export class Devices {
     static ws = null;
@@ -17,7 +18,7 @@ export class Devices {
     static debounceTimers = {};
     static lastCCValues = {};
     static DEBOUNCE_DELAY = 75;
-    static CHILL_MODE = true;
+    static CHILL_MODE = false;
     static CHILL_DELAY = 2000; // 2 seconds for chill mode
     static kioskInterval = null;
 
@@ -55,7 +56,7 @@ export class Devices {
     };
 
     // Initialize all devices based on scene config
-    static async init(config = { keyboard: true, midi: true, midicc: true, grid: true, speech: true }) {
+    static async init(config = { keyboard: true, midi: true, midicc: true, grid: true, speech: true, text: false }) {
         console.log('Initializing devices with config:', config);
         
         // Make Devices and cc array globally available immediately
@@ -79,6 +80,13 @@ export class Devices {
 
         if (config.speech) {
             this.initSpeechRecognition();
+        }
+        
+        // Initialize text controls if enabled
+        if (config.text) {
+            // If text is a string, treat it as a filename
+            const htmlFile = typeof config.text === 'string' ? config.text : null;
+            await this.initTextControl(htmlFile);
         }
     }
 
@@ -125,7 +133,9 @@ export class Devices {
         const keyMapping = {
             'Digit1': () => Controls.focus(0),
             'Digit2': () => Controls.focus(1),
-            'KeyQ': () => Controls.switchFile('prev'),
+            'Digit3': () => Controls.focus(2),
+            'Digit4': () => Controls.focus(3),
+            'KeyQ': () => Controls.switchFileByType({ filename: 'computer' }),
             'KeyW': () => Controls.switchFile('next'),
             'KeyE': () => Controls.switchFile('random'),
             'KeyR': () => Controls.switchCollection('next'),
@@ -139,6 +149,8 @@ export class Devices {
             'KeyB': () => Controls.switchPatch('next'),
             'KeyT': () => Controls.switchCollection('prev'),
             'KeyY': () => Controls.switchCollection('random'),
+            'Enter': () => Controls.togglePlay(),
+            'Backspace': () => Controls.toggleMute(),
             'Digit6': () => Controls.focus(0),
             'Digit7': () => Controls.focus(1),
             'KeyY': () => Controls.switchFile('prev'),
@@ -149,7 +161,7 @@ export class Devices {
             'KeyK': () => Controls.timeShift('random'),
             'KeyM': () => Controls.speedShift('faster'),
             'KeyN': () => Controls.speedShift('slower'),
-            'Digit3': () => Controls.switchCam(),
+          //  'Digit3': () => Controls.switchCam(),
             'KeyP': () => Controls.switchPatch('next'),
             'KeyO': () => Controls.switchPatch('prev'),
             'KeyL': () => Controls.switchCollection('next'),
@@ -840,6 +852,52 @@ export class Devices {
         this.CHILL_MODE = !this.CHILL_MODE;
         console.log(`Chill mode ${this.CHILL_MODE ? 'enabled' : 'disabled'}`);
         return this.CHILL_MODE;
+    }
+
+    static async initTextControl(htmlFile = null) {
+        console.log('Initializing text controls');
+        
+        try {
+            // If a specific HTML file is provided, load it directly
+            if (htmlFile) {
+                // Add .html extension if not present
+                if (!htmlFile.toLowerCase().endsWith('.html')) {
+                    htmlFile += '.html';
+                }
+                
+                console.log(`Loading specific HTML file: ${htmlFile}`);
+                await textController.initialize(window.currentScene);
+                await textController.loadTextFromHTML(`/library/html/${htmlFile}`);
+                textController.enableAuthorMode();
+                return;
+            }
+            
+            // Otherwise, scan the /library/html directory for available files
+            const response = await fetch('/api/html-files');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch HTML files: ${response.status}`);
+            }
+            
+            const htmlFiles = await response.json();
+            console.log('Available HTML files:', htmlFiles);
+            
+            if (htmlFiles.length === 0) {
+                console.warn('No HTML files found in /library/html');
+                return;
+            }
+            
+            // Load the first HTML file by default
+            await textController.initialize(window.currentScene);
+            await textController.loadTextFromHTML(`/library/html/${htmlFiles[0]}`);
+            textController.enableAuthorMode();
+            
+            // Make the list of available HTML files accessible
+            window.availableHtmlFiles = htmlFiles;
+            console.log('Text controls initialized with file:', htmlFiles[0]);
+            
+        } catch (error) {
+            console.error('Error initializing text controls:', error);
+        }
     }
 }
 

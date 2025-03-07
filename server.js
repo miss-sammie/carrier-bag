@@ -114,31 +114,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/library', async (req, res) => {
     try {
         const folders = req.query.folders ? JSON.parse(req.query.folders) : null;
-        const libraryPath = join(__dirname, 'public', 'library');
-        const libraries = await readdir(libraryPath, { withFileTypes: true });
-        
-        let subDirs = libraries.filter(dirent => dirent.isDirectory());
-        
-        // Filter directories if folders parameter is provided
-        if (folders && Array.isArray(folders)) {
-            subDirs = subDirs.filter(dirent => folders.includes(dirent.name));
-        }
-        
-        const mediaFiles = [];
-        
-        for (const dir of subDirs) {
-            const libraryName = dir.name;
-            const libraryDir = join(libraryPath, libraryName);
-            const files = await readdir(libraryDir, { withFileTypes: true });
-            
-            files.filter(file => {
-                const extension = file.name.split('.').pop().toLowerCase();
-                return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'mp3', 'wav', 'ogg', 'aac', 'glb', 'gltf', 'obj'].includes(extension);
-            }).forEach(file => {
-                mediaFiles.push(`/library/${libraryName}/${file.name}`);
-            });
-        }
-        
+        const mediaFiles = await scanLibrary(folders);
         res.json(mediaFiles);
     } catch (error) {
         console.error('Error scanning library:', error);
@@ -354,6 +330,29 @@ app.post('/api/fetch-remote-media', async (req, res) => {
             success: false,
             error: error.message
         });
+    }
+});
+
+// Add API endpoint for listing HTML files
+app.get('/api/html-files', async (req, res) => {
+    try {
+        const htmlDir = join(__dirname, 'public', 'library', 'html');
+        
+        // Create the directory if it doesn't exist
+        if (!fs.existsSync(htmlDir)) {
+            fs.mkdirSync(htmlDir, { recursive: true });
+            console.log(`Created directory: ${htmlDir}`);
+        }
+        
+        const files = await readdir(htmlDir, { withFileTypes: true });
+        const htmlFiles = files
+            .filter(file => !file.isDirectory() && file.name.toLowerCase().endsWith('.html'))
+            .map(file => file.name);
+        
+        res.json(htmlFiles);
+    } catch (error) {
+        console.error('Error scanning HTML files:', error);
+        res.status(500).json({ error: 'Failed to scan HTML files' });
     }
 });
 

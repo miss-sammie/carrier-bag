@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("Imports completed");
     
     try {
-        const scene = await Scene.load('Periphone');
+        const scene = await Scene.load("weclipped");
         await scene.initialize();
         
         // Make necessary objects available globally

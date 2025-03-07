@@ -12,7 +12,7 @@ export class Scene {
         this.config = {
             name: config.name || "Default",
             videoBuffers: config.videoBuffers || [0, 1],
-            audioBuffers: config.audioBuffers || null,
+            audioBuffers: config.audioBuffers || [2,3],
             collections: config.collections || {},
             folders: config.folders || null,
             babblerEnabled: config.babblerEnabled ?? true,
@@ -38,6 +38,7 @@ export class Scene {
                 midicc: true,
                 grid: true,
                 speech: true,
+                text: true,
                 ...config.controls // This will properly override defaults
             },
             patches: config.patches || {},
