@@ -6,6 +6,10 @@ import { Buffer } from './buffers.js';
 import { Controls } from './controls.js';
 import { loadLibrary, mediaLibrary, getCollection } from './media.js';
 import { Sidebar } from './sidebar.js';
+import { TextController } from './textController.js';
+
+// Create a global TextController instance
+window.textController = new TextController();
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -22,10 +26,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Make scene and state management globally available
         window.scene = scene;
+        window.currentScene = scene; // Add this to ensure compatibility
         window.captureState = (name) => scene.captureState(name);
         window.loadState = (nameOrIndex) => scene.loadState(nameOrIndex);
         window.listStates = () => scene.listStates();
         window.removeState = (nameOrIndex) => scene.removeState(nameOrIndex);
+        
+        // Update TextController with the current scene
+        if (window.textController) {
+            window.textController.updateScene(scene);
+        }
         
         // Make playlist management globally available
         window.newPlaylist = (name) => scene.newPlaylist(name);

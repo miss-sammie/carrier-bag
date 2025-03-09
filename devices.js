@@ -5,6 +5,9 @@ import { collections } from './media.js';
 import textController from './textController.js';
 
 export class Devices {
+    // Add DEBUG flag
+    static DEBUG = false;
+    
     static ws = null;
     static gridEnabled = false;
     static midiEnabled = false;
@@ -55,9 +58,38 @@ export class Devices {
         '7,13': () => Controls.refreshLibrary()
     };
 
+    // Add logging methods
+    static log(...args) {
+        if (this.DEBUG) {
+            console.log('[Devices]', ...args);
+        }
+    }
+
+    static warn(...args) {
+        if (this.DEBUG) {
+            console.warn('[Devices]', ...args);
+        }
+    }
+
+    static error(...args) {
+        // Always log errors, but with the Devices prefix
+        console.error('[Devices]', ...args);
+    }
+    static poem(...args) {
+        // Always log poems, but with the no prefix
+        console.error(...args);
+    }
+
+    // Method to toggle debug mode
+    static toggleDebug() {
+        this.DEBUG = !this.DEBUG;
+        console.log(`[Devices] Debug mode ${this.DEBUG ? 'enabled' : 'disabled'}`);
+        return this.DEBUG;
+    }
+
     // Initialize all devices based on scene config
     static async init(config = { keyboard: true, midi: true, midicc: true, grid: true, speech: true, text: false }) {
-        console.log('Initializing devices with config:', config);
+        this.log('Initializing devices with config:', config);
         
         // Make Devices and cc array globally available immediately
         window.Devices = Devices;
@@ -95,7 +127,7 @@ export class Devices {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
             
-            console.log('Found video devices:', videoDevices);
+            this.log('Found video devices:', videoDevices);
             
             // Filter for USB cameras and built-in cameras
             this.webcams = videoDevices
@@ -112,14 +144,14 @@ export class Devices {
                 this.webcams = videoDevices.map((_, index) => index);
             }
 
-            console.log('Initialized webcams:', this.webcams);
+            this.log('Initialized webcams:', this.webcams);
             
             // Export webcams array to window for Hydra
             window.webcams = this.webcams;
             window.currentCam = this.currentCam;
             
         } catch (error) {
-            console.error('Error initializing webcams:', error);
+            this.error('Error initializing webcams:', error);
             // Fallback to default webcam array
             this.webcams = [0];
             window.webcams = this.webcams;
@@ -129,13 +161,13 @@ export class Devices {
 
     // Keyboard handling
     static initKeyboard() {
-        console.log('Initializing keyboard controls');
+        this.log('Initializing keyboard controls');
         const keyMapping = {
             'Digit1': () => Controls.focus(0),
             'Digit2': () => Controls.focus(1),
             'Digit3': () => Controls.focus(2),
             'Digit4': () => Controls.focus(3),
-            'KeyQ': () => Controls.switchFileByType({ filename: 'computer' }),
+            'KeyQ': () => Controls.switchFile('prev'),
             'KeyW': () => Controls.switchFile('next'),
             'KeyE': () => Controls.switchFile('random'),
             'KeyR': () => Controls.switchCollection('next'),
@@ -165,12 +197,15 @@ export class Devices {
             'KeyP': () => Controls.switchPatch('next'),
             'KeyO': () => Controls.switchPatch('prev'),
             'KeyL': () => Controls.switchCollection('next'),
-            'KeyG': () => Controls.refreshRemoteLibrary()
+            'KeyG': () => Controls.refreshRemoteLibrary(),
+            // Add a key to toggle debug mode
+            'F1': () => this.toggleDebug()
         };
 
         Object.entries(keyMapping).forEach(([key, handler]) => {
             document.addEventListener('keyup', (event) => {
                 if (event.code === key) {
+                    this.log(`Key pressed: ${key}`);
                     handler();
                 }
             });
@@ -178,7 +213,7 @@ export class Devices {
     }
 
     static initKioskMode(interval = 5000) {
-        console.log('Initializing kiosk mode with interval:', interval);
+        this.log('Initializing kiosk mode with interval:', interval);
         
         // Clear any existing kiosk interval
         if (this.kioskInterval) {
@@ -187,7 +222,7 @@ export class Devices {
 
         // Get all available keyboard functions
         const keyFunctions = Object.values(this.gridMapping).filter(fn => typeof fn === 'function');
-        console.log('Kiosk mode key functions:', keyFunctions);
+        this.log('Kiosk mode key functions:', keyFunctions);
         
         // Start the interval
         this.kioskInterval = setInterval(() => {
@@ -204,28 +239,28 @@ export class Devices {
                 } else {
                     randomFunction();
                 }
-                console.log('Kiosk mode executed random function');
+                this.log('Kiosk mode executed random function');
             } catch (error) {
-                console.error('Error in kiosk mode function execution:', error);
+                this.error('Error in kiosk mode function execution:', error);
             }
         }, interval);
 
-        console.log('Kiosk mode initialized');
+        this.log('Kiosk mode initialized');
     }
 
     static stopKioskMode() {
         if (this.kioskInterval) {
             clearInterval(this.kioskInterval);
             this.kioskInterval = null;
-            console.log('Kiosk mode stopped');
+            this.log('Kiosk mode stopped');
         }
     }
 
     // MIDI handling
     static async initializeMIDI(enableCC = true) {
-        console.log('Initializing MIDI controls');
+        this.log('Initializing MIDI controls');
         if (!navigator.requestMIDIAccess) {
-            console.warn('Web MIDI API not supported');
+            this.warn('Web MIDI API not supported');
             return;
         }
 
@@ -237,9 +272,9 @@ export class Devices {
             inputs.forEach(input => {
                 input.onmidimessage = (message) => this.handleMIDIMessage(message, enableCC);
             });
-            console.log('MIDI initialized successfully');
+            this.log('MIDI initialized successfully with inputs:', inputs.map(i => i.name));
         } catch (error) {
-            console.error('MIDI initialization failed:', error);
+            this.error('MIDI initialization failed:', error);
         }
     }
 
@@ -256,6 +291,7 @@ export class Devices {
         this.debounceTimers[note] = setTimeout(() => {
             // Only execute if this is still the latest value
             if (this.lastCCValues[note] === value) {
+                this.log(`Executing debounced CC callback for note ${note} with value ${value}`);
                 callback();
             }
             delete this.debounceTimers[note];
@@ -269,6 +305,8 @@ export class Devices {
         if (status === 176 && enableCC) {
             // Update normalized CC value
             this.cc[note] = (velocity + 1) / 128.0;
+            
+            this.log(`CC message: note=${note}, value=${this.cc[note]}`);
             
             // Handle specific CC mappings
             switch(note) {
@@ -340,6 +378,8 @@ export class Devices {
         
         // Handle note messages
         else if (status === 144 && velocity > 0) {
+            this.log(`MIDI note: ${note}, velocity: ${velocity}`);
+            
             const handler = {
                 12: () => Controls.switchFile('prev'),
                 11: () => Controls.switchFile('next'),
@@ -394,7 +434,7 @@ export class Devices {
             this.ws = new WebSocket('ws://localhost:8080');
 
             this.ws.onopen = () => {
-                console.log('Connected to grid WebSocket server');
+                this.log('Connected to grid WebSocket server');
                 this.gridEnabled = true;
                 this.initGridLEDs();
                 this.startGridRefresh();
@@ -404,12 +444,12 @@ export class Devices {
             };
 
             this.ws.onclose = () => {
-                console.log('Disconnected from grid WebSocket server');
+                this.log('Disconnected from grid WebSocket server');
                 this.gridEnabled = false;
             };
 
             this.ws.onerror = (error) => {
-                console.error('Grid WebSocket error:', error);
+                this.error('Grid WebSocket error:', error);
                 this.gridEnabled = false;
             };
 
@@ -420,11 +460,11 @@ export class Devices {
                         this.handleGridPress(data.x, data.y, data.s);
                     }
                 } catch (error) {
-                    console.error('Error processing grid message:', error);
+                    this.error('Error processing grid message:', error);
                 }
             };
         } catch (error) {
-            console.warn('Grid initialization failed:', error);
+            this.warn('Grid initialization failed:', error);
             this.gridEnabled = false;
         }
     }
@@ -442,6 +482,8 @@ export class Devices {
         if (s !== 1) return; // Only handle button presses
 
         const key = `${y},${x}`;
+        this.log(`Grid press: ${key}`);
+        
         const handler = this.gridMapping[key];
         if (handler) {
             handler();
@@ -575,6 +617,8 @@ export class Devices {
                 this.dirty = true;
             };
         });
+        
+        this.log('Dynamic grid controls set up');
     }
 
     static startPlayheadMonitor() {
@@ -590,11 +634,13 @@ export class Devices {
                 this.dirty = true;
             }
         }, 100); // Check every 100ms
+        
+        this.log('Playhead monitor started');
     }
 
     static initSpeechRecognition() {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            console.warn('Speech recognition not supported in this browser');
+            this.warn('Speech recognition not supported in this browser');
             return;
         }
 
@@ -654,7 +700,7 @@ export class Devices {
                     num = numberWords.indexOf(value);
                 }
                 
-                console.log('Focus command:', {
+                this.log('Focus command:', {
                     input: value,
                     parsedIndex: num,
                     bufferCount: Buffer.buffers.length
@@ -662,10 +708,10 @@ export class Devices {
                 
                 // Only focus if the buffer exists
                 if (Buffer.buffers && num >= 0 && num < Buffer.buffers.length) {
-                    console.log('Focusing buffer:', num);
+                    this.log('Focusing buffer:', num);
                     Controls.focus(num);
                 } else {
-                    console.warn(`Buffer ${num + 1} does not exist. Available buffers: ${Buffer.buffers ? Buffer.buffers.length : 0}`);
+                    this.warn(`Buffer ${num + 1} does not exist. Available buffers: ${Buffer.buffers ? Buffer.buffers.length : 0}`);
                 }
             },
 
@@ -673,11 +719,11 @@ export class Devices {
             '(?:switch to |change to |go to )?(previous|prev|next|random)(?: file| video| media)?': (match) => {
                 const focusedBuffer = Controls.focusedBuffer;
                 if (!focusedBuffer) {
-                    console.warn('No buffer focused');
+                    this.warn('No buffer focused');
                     return;
                 }
                 if (!focusedBuffer.currentCollection?.items?.length) {
-                    console.warn('No collection loaded or collection is empty');
+                    this.warn('No collection loaded or collection is empty');
                     return;
                 }
                 
@@ -687,7 +733,7 @@ export class Devices {
                     direction = 'prev';
                 }
                 
-                console.log('Switching file:', {
+                this.log('Switching file:', {
                     direction,
                     currentIndex: focusedBuffer.currentIndex,
                     collectionLength: focusedBuffer.currentCollection.items.length
@@ -720,7 +766,7 @@ export class Devices {
                     .filter(([name, collection]) => collection.items.length > 0)
                     .map(([name]) => name);
                 
-                console.log('Collection switch command:', {
+                this.log('Collection switch command:', {
                     input: value,
                     parsedIndex: num,
                     availableCollections: nonEmptyCollections.length
@@ -730,14 +776,14 @@ export class Devices {
                 if (nonEmptyCollections.length > 0 && num >= 0 && num < nonEmptyCollections.length) {
                     const focusedBuffer = Controls.focusedBuffer;
                     if (focusedBuffer) {
-                        console.log('Switching to collection:', nonEmptyCollections[num]);
+                        this.log('Switching to collection:', nonEmptyCollections[num]);
                         focusedBuffer.setCollection(nonEmptyCollections[num]);
                         reloadActiveSource();
                     } else {
-                        console.warn('No buffer focused');
+                        this.warn('No buffer focused');
                     }
                 } else {
-                    console.warn(`Collection ${num + 1} does not exist. Available collections: ${nonEmptyCollections.length}`);
+                    this.warn(`Collection ${num + 1} does not exist. Available collections: ${nonEmptyCollections.length}`);
                 }
             },
 
@@ -765,7 +811,7 @@ export class Devices {
                     match[1] : // If it's already a digit string
                     (numberWords.indexOf(match[1]) + 1).toString(); // Convert word to number string
                 
-                console.log('Loading patch:', num);
+                this.log('Loading patch:', num);
                 Controls.switchPatch(num);
             },
 
@@ -795,17 +841,19 @@ export class Devices {
             const last = event.results.length - 1;
             const command = event.results[last][0].transcript.trim().toLowerCase();
             
-            console.log('Voice command received:', command);
+            this.log('Voice command received:', command);
+            this.poem(command);
+
             
             // Split commands by 'and' or 'then'
             const commands = command.split(/\s+(?:and|then)\s+/);
-            console.log('Parsed commands:', commands);
+            this.log('Parsed commands:', commands);
             
             // Process each command in sequence
             commands.forEach((singleCommand, index) => {
                 // Trim each command to remove any extra whitespace
                 singleCommand = singleCommand.trim();
-                console.log(`Processing command ${index + 1}/${commands.length}:`, singleCommand);
+                this.log(`Processing command ${index + 1}/${commands.length}:`, singleCommand);
                 
                 // Try to match and execute each command
                 let commandExecuted = false;
@@ -825,13 +873,14 @@ export class Devices {
                 }
                 
                 if (!commandExecuted) {
-                    console.warn(`No matching command found for: "${singleCommand}"`);
+                    this.warn(`No matching command found for: "${singleCommand}"`);
+                    //this.poem(singleCommand);
                 }
             });
         };
 
         recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
+            this.error('Speech recognition error:', event.error);
         };
 
         recognition.onend = () => {
@@ -842,20 +891,20 @@ export class Devices {
         // Start recognition
         try {
             recognition.start();
-            console.log('Speech recognition initialized');
+            this.log('Speech recognition initialized');
         } catch (error) {
-            console.error('Error starting speech recognition:', error);
+            this.error('Error starting speech recognition:', error);
         }
     }
 
     static toggleChillMode() {
         this.CHILL_MODE = !this.CHILL_MODE;
-        console.log(`Chill mode ${this.CHILL_MODE ? 'enabled' : 'disabled'}`);
+        this.log(`Chill mode ${this.CHILL_MODE ? 'enabled' : 'disabled'}`);
         return this.CHILL_MODE;
     }
 
     static async initTextControl(htmlFile = null) {
-        console.log('Initializing text controls');
+        this.log('Initializing text controls');
         
         try {
             // If a specific HTML file is provided, load it directly
@@ -865,7 +914,7 @@ export class Devices {
                     htmlFile += '.html';
                 }
                 
-                console.log(`Loading specific HTML file: ${htmlFile}`);
+                this.log(`Loading specific HTML file: ${htmlFile}`);
                 await textController.initialize(window.currentScene);
                 await textController.loadTextFromHTML(`/library/html/${htmlFile}`);
                 textController.enableAuthorMode();
@@ -879,10 +928,10 @@ export class Devices {
             }
             
             const htmlFiles = await response.json();
-            console.log('Available HTML files:', htmlFiles);
+            this.log('Available HTML files:', htmlFiles);
             
             if (htmlFiles.length === 0) {
-                console.warn('No HTML files found in /library/html');
+                this.warn('No HTML files found in /library/html');
                 return;
             }
             
@@ -893,10 +942,10 @@ export class Devices {
             
             // Make the list of available HTML files accessible
             window.availableHtmlFiles = htmlFiles;
-            console.log('Text controls initialized with file:', htmlFiles[0]);
+            this.log('Text controls initialized with file:', htmlFiles[0]);
             
         } catch (error) {
-            console.error('Error initializing text controls:', error);
+            this.error('Error initializing text controls:', error);
         }
     }
 }

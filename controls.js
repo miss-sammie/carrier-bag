@@ -11,7 +11,7 @@ export class Controls {
     static switchOperations = ['next', 'prev', 'random'];
     static timeShiftInterval = 2
     static noEnabled = true  
-    static DEBUG = false; 
+    static DEBUG = true; 
 
     static autoIntervals = {
         switch: null,

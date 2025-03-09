@@ -31,8 +31,8 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Configure MIME types
 express.static.mime.define({
@@ -114,7 +114,8 @@ app.get('/api/health', (req, res) => {
 app.get('/api/library', async (req, res) => {
     try {
         const folders = req.query.folders ? JSON.parse(req.query.folders) : null;
-        const mediaFiles = await scanLibrary(folders);
+        const includeSubdirectories = req.query.includeSubdirectories === 'true';
+        const mediaFiles = await scanLibrary(folders, includeSubdirectories);
         res.json(mediaFiles);
     } catch (error) {
         console.error('Error scanning library:', error);
@@ -126,6 +127,13 @@ app.get('/api/library', async (req, res) => {
 const playlistsDir = join(__dirname, 'public', 'library', 'playlists');
 if (!fs.existsSync(playlistsDir)) {
     fs.mkdirSync(playlistsDir);
+}
+
+// Create sequences directory if it doesn't exist
+const sequencesDir = join(__dirname, 'public', 'library', 'sequences');
+if (!fs.existsSync(sequencesDir)) {
+    fs.mkdirSync(sequencesDir, { recursive: true });
+    console.log('Created sequences directory:', sequencesDir);
 }
 
 // Add API endpoint for saving scenes
@@ -190,6 +198,44 @@ app.put('/library/playlists/:playlistName.json', async (req, res) => {
     }
 });
 
+// Add API endpoint for saving/updating a text sequence
+app.put('/public/library/sequences/:sequenceName.json', async (req, res) => {
+    try {
+        const { sequenceName } = req.params;
+        const sequencePath = join(__dirname, 'public', 'library', 'sequences', `${sequenceName}.json`);
+        
+        // Ensure the directory exists
+        if (!fs.existsSync(sequencesDir)) {
+            fs.mkdirSync(sequencesDir, { recursive: true });
+        }
+        
+        // Write the file
+        await fs.promises.writeFile(sequencePath, JSON.stringify(req.body, null, 2));
+        res.json({ status: 'ok', message: `Text sequence ${sequenceName} saved successfully` });
+    } catch (error) {
+        console.error('Error saving text sequence:', error);
+        res.status(500).json({ error: 'Failed to save text sequence' });
+    }
+});
+
+// Add API endpoint for loading a text sequence
+app.get('/public/library/sequences/:sequenceName.json', async (req, res) => {
+    try {
+        const { sequenceName } = req.params;
+        const sequencePath = join(__dirname, 'public', 'library', 'sequences', `${sequenceName}.json`);
+        
+        if (!fs.existsSync(sequencePath)) {
+            return res.status(404).json({ error: `Text sequence ${sequenceName} not found` });
+        }
+        
+        const sequence = await fs.promises.readFile(sequencePath, 'utf8');
+        res.json(JSON.parse(sequence));
+    } catch (error) {
+        console.error('Error loading text sequence:', error);
+        res.status(500).json({ error: 'Failed to load text sequence' });
+    }
+});
+
 // Serve index.html for the root route
 app.get('/', (req, res) => {
     res.sendFile(join(__dirname, 'index.html'));
@@ -239,18 +285,6 @@ app.post('/upload', (req, res) => {
 // Add explicit route for upload page
 app.get('/upload.html', (req, res) => {
     res.sendFile(join(__dirname, 'public', 'upload.html'));
-});
-
-// Update upload directories to include images
-const uploadDirs = ['videos', 'audios', 'images'].map(dir => 
-    join(__dirname, 'public', 'library', dir)
-);
-
-uploadDirs.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log(`Created upload directory: ${dir}`);
-    }
 });
 
 // Add API endpoint for fetching remote media

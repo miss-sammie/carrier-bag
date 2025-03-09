@@ -38,16 +38,41 @@ class Buffer {
     setCollection(collectionName) {
         const collection = getCollection(collectionName);
         if (!collection) {
+            console.error(`Collection "${collectionName}" not found`);
             throw new Error(`Collection "${collectionName}" not found`);
         }
 
         this.currentCollection = collection;
         this.currentIndex = 0;
 
-        console.log(`Buffer ${this.slot} set to collection "${collectionName}"`);
+        console.log(`Buffer ${this.slot} (${this.type}) set to collection "${collectionName}" with ${collection.items.length} items`);
         
-        // Load the first item
-        return this.loadMedia(collection.getAll()[0].url);
+        // Get all items from the collection
+        const allItems = collection.getAll();
+        
+        // Filter items based on buffer type
+        let compatibleItems;
+        if (this.type === 'audio') {
+            // For audio buffers, only include audio files
+            compatibleItems = allItems.filter(item => item.type === 'audio');
+            console.log(`Buffer ${this.slot} (audio): Found ${compatibleItems.length} compatible audio items in collection "${collectionName}"`);
+        } else if (this.type === 'visual') {
+            // For visual buffers, only include image and video files
+            compatibleItems = allItems.filter(item => item.type === 'image' || item.type === 'video');
+            console.log(`Buffer ${this.slot} (visual): Found ${compatibleItems.length} compatible visual items in collection "${collectionName}"`);
+        } else {
+            // Fallback to all items if buffer type is unknown
+            compatibleItems = allItems;
+        }
+        
+        // If no compatible items found, log a warning but don't throw an error
+        if (compatibleItems.length === 0) {
+            console.warn(`No compatible media found in collection "${collectionName}" for buffer type "${this.type}"`);
+            return null;
+        }
+        
+        // Load the first compatible item
+        return this.loadMedia(compatibleItems[0].url);
     }
 
     switchFile(direction = 'next') {

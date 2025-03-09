@@ -73,8 +73,26 @@ export class Scene {
             // Set collections for each buffer and wait for them to load
             const collectionPromises = Object.entries(this.config.collections).map(async ([bufferIndex, collectionName]) => {
                 const buffer = this.buffers[bufferIndex];
-                if (buffer && getCollection(collectionName)?.items.length > 0) {
-                    await buffer.setCollection(collectionName);
+                if (buffer) {
+                    const collection = getCollection(collectionName);
+                    if (collection) {
+                        console.log(`Setting buffer ${bufferIndex} (${buffer.type}) to collection "${collectionName}"`);
+                        
+                        // Check if this is an audio buffer and the collection has audio items
+                        if (buffer.type === 'audio') {
+                            const audioItems = collection.items.filter(item => item.type === 'audio');
+                            if (audioItems.length === 0) {
+                                console.warn(`Collection "${collectionName}" has no audio items for audio buffer ${bufferIndex}`);
+                            }
+                        }
+                        
+                        // Set the collection
+                        await buffer.setCollection(collectionName);
+                    } else {
+                        console.warn(`Collection "${collectionName}" not found for buffer ${bufferIndex}`);
+                    }
+                } else {
+                    console.warn(`Buffer ${bufferIndex} not found`);
                 }
             });
 

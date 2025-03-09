@@ -1,5 +1,5 @@
 const mediaLibrary = [];
-const DEBUG = false; // Debug flag - set to true to enable logging
+const DEBUG = true; // Debug flag - set to true to enable logging
 
 function log(...args) {
     if (DEBUG) console.log('[Media]', ...args);
@@ -22,8 +22,9 @@ class MediaObject {
         this.dateCreated = new Date();
         this.contributor = null;
         this.folder = this.extractFolder(url);
+        this.topLevelFolder = this.extractTopLevelFolder(url);
         this.collections = [];
-        log(`Created MediaObject: ${this.title} (${this.type}) in folder: ${this.folder}`);
+        log(`Created MediaObject: ${this.title} (${this.type}) in folder: ${this.folder}, top-level: ${this.topLevelFolder}`);
     }
 
     getMediaType(url) {
@@ -58,6 +59,31 @@ class MediaObject {
         return folder;
     }
 
+    extractTopLevelFolder(url) {
+        // For URLs like /library/media/topFolder/subFolder/file.ext
+        const parts = url.split('/');
+        // Find the index of 'library' in the path
+        const libraryIndex = parts.indexOf('library');
+        
+        if (libraryIndex === -1) {
+            // If 'library' not found, fallback to immediate folder
+            return this.folder;
+        }
+        
+        // Extract the full path after 'library'
+        const pathAfterLibrary = parts.slice(libraryIndex + 1);
+        
+        // If we have a path after library, return it for path matching
+        if (pathAfterLibrary.length > 0) {
+            // Return the full path after library, excluding the filename
+            // This allows for matching against any level in the folder hierarchy
+            return pathAfterLibrary.slice(0, -1).join('/');
+        }
+        
+        // Fallback to immediate folder if no path after library
+        return this.folder;
+    }
+
     addToCollection(collection) {
         if (!this.collections.includes(collection)) {
             this.collections.push(collection);
@@ -89,6 +115,23 @@ class MediaCollection {
                 const folderResults = mediaLibrary.filter(media => media.folder === value);
                 log(`Found ${folderResults.length} items in folder: ${value}`);
                 return folderResults;
+            case 'topLevelFolder':
+                // Updated to handle path-based matching
+                const topFolderResults = mediaLibrary.filter(media => {
+                    // Exact match
+                    if (media.topLevelFolder === value) return true;
+                    
+                    // Check if the folder is a subdirectory of the value
+                    // For example, if value is "media/avatars", it should match "media/avatars/subfolder"
+                    if (media.topLevelFolder.startsWith(value + '/')) return true;
+                    
+                    // Check if the value is a subdirectory of the folder
+                    // For example, if value is "avatars" and topLevelFolder is "media/avatars"
+                    const pathParts = media.topLevelFolder.split('/');
+                    return pathParts.includes(value);
+                });
+                log(`Found ${topFolderResults.length} items in or related to folder path: ${value}`);
+                return topFolderResults;
             default:
                 error(`Invalid filter parameter: ${parameter}`);
                 throw new Error(`Invalid filter parameter: ${parameter}`);
@@ -122,7 +165,7 @@ class MediaCollection {
     }
 }
 
-// Modify createDefaultCollections to respect folder restrictions
+// Modify createDefaultCollections to respect folder restrictions and handle nested folder structures
 function createDefaultCollections(mediaLibrary, allowedFolders = null) {
     log('Creating default collections...');
     
@@ -135,29 +178,60 @@ function createDefaultCollections(mediaLibrary, allowedFolders = null) {
         log(`Created type collection: ${name} with ${collection.items.length} items`);
     });
 
-    // Create collections only for allowed folders
+    // Create collections for immediate folders
     const uniqueFolders = [...new Set(mediaLibrary.map(media => media.folder))];
-    log(`Found unique folders: ${uniqueFolders.join(', ')}`);
+    log(`Found unique immediate folders: ${uniqueFolders.join(', ')}`);
     
     uniqueFolders.forEach(folder => {
-        // Only create folder collections for allowed folders
-        if (!allowedFolders || allowedFolders.includes(folder)) {
+        // Only create immediate folder collections if no allowedFolders specified or it's in allowedFolders
+        if (!allowedFolders || allowedFolders.some(allowedFolder => 
+            folder === allowedFolder || 
+            folder.includes(allowedFolder) || 
+            allowedFolder.includes(folder)
+        )) {
             const collection = new MediaCollection(folder);
             collection.items = MediaCollection.getMedia('folder', folder);
             collections.set(folder, collection);
             log(`Created folder collection: ${folder} with ${collection.items.length} items`);
         } else {
-            log(`Skipping folder collection: ${folder} (not in allowed folders)`);
+            log(`Skipping immediate folder collection: ${folder} (not in allowed folders)`);
         }
     });
+
+    // Create collections for specified folders that include all their subdirectories
+    if (allowedFolders && allowedFolders.length > 0) {
+        log(`Creating collections for allowed folders: ${allowedFolders.join(', ')}`);
+        
+        allowedFolders.forEach(folderPath => {
+            // Create a collection for this folder if it doesn't exist yet
+            if (!collections.has(folderPath)) {
+                const collection = new MediaCollection(folderPath);
+                collections.set(folderPath, collection);
+                log(`Created folder collection: ${folderPath}`);
+            }
+            
+            // Add all media from this folder and its subdirectories
+            const folderCollection = collections.get(folderPath);
+            
+            // Use the updated getMedia method to find all media in this folder path
+            const mediaInFolder = MediaCollection.getMedia('topLevelFolder', folderPath);
+            
+            // Add all found media to the collection
+            mediaInFolder.forEach(media => folderCollection.add(media));
+            
+            log(`Updated folder collection: ${folderPath} with ${folderCollection.items.length} items`);
+        });
+    }
 }
 
 // Modify loadLibrary to accept folders parameter
 async function loadLibrary(folders = null) {
     log('Loading library...');
     try {
-        // Pass folders parameter in the URL if specified
-        const url = folders ? `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}` : '/api/library';
+        // Pass folders parameter in the URL if specified, and add includeSubdirectories=true
+        const url = folders ? 
+            `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}&includeSubdirectories=true` : 
+            '/api/library';
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -213,8 +287,10 @@ function getCollection(name) {
 async function checkLibrary(folders = null) {
     log('Checking for new files in library...');
     try {
-        // Use the same URL construction as loadLibrary
-        const url = folders ? `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}` : '/api/library';
+        // Use the same URL construction as loadLibrary with includeSubdirectories
+        const url = folders ? 
+            `/api/library?folders=${encodeURIComponent(JSON.stringify(folders))}&includeSubdirectories=true` : 
+            '/api/library';
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -252,10 +328,26 @@ async function checkLibrary(folders = null) {
                 log(`Added ${newItemsForType.length} items to ${name} collection`);
             }
             // For folder-based collections
-            else if (!folders || folders.includes(name)) {
-                const newItemsForFolder = newMediaObjects.filter(media => media.folder === name);
-                newItemsForFolder.forEach(media => collection.add(media));
-                log(`Added ${newItemsForFolder.length} items to ${name} folder collection`);
+            else {
+                // Check if this is a folder collection that should include the new media
+                // Use the same flexible matching logic as in getMedia
+                const newItemsForFolder = newMediaObjects.filter(media => {
+                    // Exact match with immediate folder
+                    if (media.folder === name) return true;
+                    
+                    // Path-based matching with topLevelFolder
+                    if (media.topLevelFolder === name) return true;
+                    if (media.topLevelFolder.startsWith(name + '/')) return true;
+                    
+                    // Check if the folder name is part of the path
+                    const pathParts = media.topLevelFolder.split('/');
+                    return pathParts.includes(name);
+                });
+                
+                if (newItemsForFolder.length > 0) {
+                    newItemsForFolder.forEach(media => collection.add(media));
+                    log(`Added ${newItemsForFolder.length} items to ${name} folder collection`);
+                }
             }
         }
 

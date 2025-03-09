@@ -7,13 +7,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = dirname(__dirname);
 
-export async function scanLibrary(folders = null) {
+export async function scanLibrary(folders = null, includeSubdirectories = false) {
     try {
         const libraryPath = join(rootDir, 'public', 'library');
         const mediaFiles = [];
+        const foundDirectories = new Map(); // To track all directories found during scanning
         
-        // Recursive function to scan directories
-        async function scanDirectoryRecursively(dirPath, basePath) {
+        // Recursive function to scan directories and collect all subdirectories
+        async function scanDirectoryRecursively(dirPath, basePath, currentRelativePath = '') {
             try {
                 const entries = await readdir(dirPath, { withFileTypes: true });
                 
@@ -21,8 +22,15 @@ export async function scanLibrary(folders = null) {
                     const fullPath = join(dirPath, entry.name);
                     
                     if (entry.isDirectory()) {
+                        // Calculate the relative path for this directory
+                        const relativeDirPath = currentRelativePath ? 
+                            `${currentRelativePath}/${entry.name}` : entry.name;
+                        
+                        // Store this directory in our map
+                        foundDirectories.set(relativeDirPath, fullPath);
+                        
                         // Recursively scan subdirectories
-                        await scanDirectoryRecursively(fullPath, basePath);
+                        await scanDirectoryRecursively(fullPath, basePath, relativeDirPath);
                     } else {
                         // Check if file is a media file
                         const extension = entry.name.split('.').pop().toLowerCase();
@@ -38,20 +46,46 @@ export async function scanLibrary(folders = null) {
             }
         }
         
-        // Get all subdirectories (these are our libraries)
-        const libraries = await readdir(libraryPath, { withFileTypes: true });
-        let subDirs = libraries.filter(dirent => dirent.isDirectory());
+        // First, scan the entire library to find all directories
+        await scanDirectoryRecursively(libraryPath, libraryPath);
         
-        // If folders is specified, filter to only include those folders
-        if (folders && Array.isArray(folders)) {
-            subDirs = subDirs.filter(dirent => folders.includes(dirent.name));
-        }
-        
-        // Scan each subdirectory recursively
-        for (const dir of subDirs) {
-            const libraryName = dir.name;
-            const libraryDir = join(libraryPath, libraryName);
-            await scanDirectoryRecursively(libraryDir, libraryPath);
+        // If folders is specified, filter media files based on the specified folders
+        if (folders && Array.isArray(folders) && folders.length > 0) {
+            // Clear the mediaFiles array since we'll be re-adding only the files we want
+            mediaFiles.length = 0;
+            
+            // For each specified folder, find matching directories at any level
+            for (const folder of folders) {
+                const matchingDirs = [];
+                
+                // Check for exact match
+                if (foundDirectories.has(folder)) {
+                    matchingDirs.push(foundDirectories.get(folder));
+                }
+                
+                // Check for directories that are subdirectories of the specified folder
+                for (const [dirPath, fullPath] of foundDirectories.entries()) {
+                    if (dirPath.startsWith(`${folder}/`)) {
+                        matchingDirs.push(fullPath);
+                    }
+                }
+                
+                // Check for directories where the specified folder is a part of the path
+                // This handles cases like "avatars" matching "media/avatars"
+                if (matchingDirs.length === 0) {
+                    for (const [dirPath, fullPath] of foundDirectories.entries()) {
+                        const parts = dirPath.split('/');
+                        if (parts.includes(folder)) {
+                            matchingDirs.push(fullPath);
+                        }
+                    }
+                }
+                
+                // Scan all matching directories
+                for (const dirPath of matchingDirs) {
+                    await scanDirectoryRecursively(dirPath, libraryPath);
+                }
+            }
         }
         
         console.log(`Found ${mediaFiles.length} media files in library`);

@@ -1,7 +1,7 @@
 import { Controls } from './controls.js';
 import { Scene } from './scene.js';
 
-class TextController {
+export class TextController {
     constructor() {
         this.textStates = [];
         this.currentIndex = 0;
@@ -135,6 +135,12 @@ class TextController {
             textIndex = this.currentIndex;
         }
         
+        // Try to get the scene from window.scene if this.currentScene is not available
+        if (!this.currentScene && window.scene) {
+            this.currentScene = window.scene;
+            console.log('Using global scene reference');
+        }
+        
         if (!this.currentScene) {
             console.error('No scene available to capture state');
             return false;
@@ -177,10 +183,19 @@ class TextController {
         // Send the text to the popup
         this.sendTextToPopup(textState.text);
         
-        // In author mode, just log the state without executing functions
+        // First, load the associated state if any
+        if (textState.state && this.currentScene) {
+            try {
+                await this.currentScene.loadState(textState.state);
+                console.log(`Loaded state "${textState.state}" for text state ${index}`);
+            } catch (error) {
+                console.error(`Error loading state "${textState.state}":`, error);
+            }
+        }
+        
+        // In author mode, log the state but still execute functions
         if (this.authorMode) {
             this.logCurrentState();
-            return true;
         }
         
         // Execute the associated control function if any
@@ -194,28 +209,22 @@ class TextController {
             }
         }
         
-        // Load the associated state if any
-        if (textState.state && this.currentScene) {
-            try {
-                await this.currentScene.loadState(textState.state);
-                console.log(`Loaded state "${textState.state}" for text state ${index}`);
-            } catch (error) {
-                console.error(`Error loading state "${textState.state}":`, error);
-            }
-        }
-        
         return true;
     }
 
     // Navigate to the next text state
     async next() {
+        console.log(`Navigating to next text state from ${this.currentIndex}`);
         const nextIndex = (this.currentIndex + 1) % this.textStates.length;
+        console.log(`Next index: ${nextIndex}`);
         return this.goToText(nextIndex);
     }
 
     // Navigate to the previous text state
     async previous() {
+        console.log(`Navigating to previous text state from ${this.currentIndex}`);
         const prevIndex = (this.currentIndex - 1 + this.textStates.length) % this.textStates.length;
+        console.log(`Previous index: ${prevIndex}`);
         return this.goToText(prevIndex);
     }
 
@@ -377,13 +386,33 @@ class TextController {
         }
         
         try {
+            // Create a simplified version of the text states that doesn't include potentially large objects
+            const simplifiedTextStates = this.textStates.map(state => {
+                // Create a clean copy without any potential circular references
+                const cleanState = {
+                    id: state.id,
+                    text: state.text,
+                    state: state.state // Just store the state name, not the full state object
+                };
+                
+                // Only include control function if it exists
+                if (state.controlFunction) {
+                    cleanState.controlFunction = {
+                        name: state.controlFunction.name,
+                        args: state.controlFunction.args
+                    };
+                }
+                
+                return cleanState;
+            });
+            
             const sequence = {
                 name,
                 created: Date.now(),
-                textStates: this.textStates
+                textStates: simplifiedTextStates
             };
             
-            const response = await fetch(`/library/text-sequences/${name}.json`, {
+            const response = await fetch(`/public/library/sequences/${name}.json`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -406,7 +435,7 @@ class TextController {
     // Load a saved text sequence
     async loadTextSequence(name) {
         try {
-            const response = await fetch(`/library/text-sequences/${name}.json`);
+            const response = await fetch(`/public/library/sequences/${name}.json`);
             if (!response.ok) {
                 throw new Error(`Failed to load text sequence: ${name}`);
             }
@@ -431,11 +460,26 @@ class TextController {
 
     // Clean up resources
     cleanup() {
-        this.disableAuthorMode();
         if (this.popupWindow && !this.popupWindow.closed) {
             this.popupWindow.close();
         }
+        
+        if (this.authorMode) {
+            this.disableAuthorMode();
+        }
+        
         this.popupWindow = null;
+        this.isInitialized = false;
+    }
+    
+    // Update the current scene reference
+    updateScene(scene) {
+        if (scene) {
+            this.currentScene = scene;
+            console.log('TextController: Scene reference updated');
+        } else {
+            console.warn('TextController: Attempted to update scene with null reference');
+        }
     }
 }
 
