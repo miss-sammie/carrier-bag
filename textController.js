@@ -9,6 +9,10 @@ export class TextController {
         this.currentScene = null;
         this.isInitialized = false;
         this.authorMode = false;
+        this.canvas = null;
+        this.ctx = null;
+        this.currentTextCache = null;
+        this.textColor = 'black';  // Add default text color
     }
 
     async initialize(scene) {
@@ -17,6 +21,17 @@ export class TextController {
         this.currentScene = scene;
         await this.loadTextFromHTML('text-window.html');
         this.openTextPopup();
+        this.initializeCanvas();
+        
+        // Initialize Hydra source if available
+        // if (window.s3 && typeof window.s3.init === 'function') {
+        //     try {
+        //         window.s3.init({src: this.canvas});
+        //     } catch (error) {
+        //         console.warn('Failed to initialize Hydra source s3:', error);
+        //     }
+        // }
+        
         this.isInitialized = true;
         
         console.log('TextController initialized with', this.textStates.length, 'text states');
@@ -92,6 +107,146 @@ export class TextController {
         }
     }
 
+    initializeCanvas() {
+        // Create canvas element
+        this.canvas = document.createElement('canvas');
+        this.canvas.id = 'text-canvas';
+        
+        // Set canvas style - keep it hidden but still rendered
+        Object.assign(this.canvas.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100vw',
+            height: '100vh',
+            zIndex: '-100',
+            pointerEvents: 'none',
+            margin: '0',
+            padding: '0',
+            transform: 'none',
+            visibility: 'hidden'  // Use visibility: hidden instead of display: none
+        });
+        
+        // Set actual canvas dimensions to match window
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Get context and set default text style
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+        this.ctx.font = '24px Arial';
+        this.ctx.fillStyle = 'white';
+        this.ctx.textAlign = 'center';
+        
+        // Add canvas directly to body as first child
+        document.body.insertBefore(this.canvas, document.body.firstChild);
+        
+        // Initialize Hydra source with this canvas if it exists
+        if (window.s3 && typeof window.s3.init === 'function') {
+            try {
+                window.s3.init({src: this.canvas});
+                console.log('Initialized Hydra source s3 with text canvas');
+            } catch (error) {
+                console.warn('Failed to initialize Hydra source s3:', error);
+            }
+        }
+        
+        // NO resize event listener - we'll only update when text changes
+    }
+
+    updateCanvasText(text) {
+        if (!this.ctx || !this.canvas || !text) return;
+        
+        console.log('Updating canvas text with:', text.substring(0, 30) + '...');
+        
+        // Update canvas dimensions to current window size
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Reset text style after canvas resize using current color
+        this.ctx.fillStyle = this.textColor;
+        
+        const words = text.split(' ');
+        const maxWidth = this.canvas.width * 0.8;  // Use canvas width, not window width
+        const maxHeight = this.canvas.height * 0.8; // Use canvas height, not window height
+        
+        // Binary search to find the optimal font size
+        let minSize = 12;
+        let maxSize = 200;
+        let optimalSize = minSize;
+        let lines = [];
+        
+        while (minSize <= maxSize) {
+            const fontSize = Math.floor((minSize + maxSize) / 2);
+            this.ctx.font = `${fontSize}px Arial`;
+            
+            // Try to wrap text with current font size
+            let currentLine = '';
+            const testLines = [];
+            
+            for (const word of words) {
+                const testLine = currentLine + word + ' ';
+                const metrics = this.ctx.measureText(testLine);
+                
+                if (metrics.width > maxWidth) {
+                    testLines.push(currentLine);
+                    currentLine = word + ' ';
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            testLines.push(currentLine);
+            
+            // Calculate total height
+            const lineHeight = fontSize * 1.2;
+            const totalHeight = testLines.length * lineHeight;
+            
+            if (totalHeight > maxHeight) {
+                maxSize = fontSize - 1;
+            } else {
+                optimalSize = fontSize;
+                lines = testLines;
+                minSize = fontSize + 1;
+            }
+        }
+        
+        // Set up final text rendering
+        this.ctx.font = `${optimalSize}px Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        
+        const lineHeight = optimalSize * 1.2;
+        const totalHeight = lines.length * lineHeight;
+        
+        // Calculate vertical center
+        const canvasCenterY = this.canvas.height / 2;
+        const startY = canvasCenterY - (totalHeight / 2);
+        
+        // Draw each line
+        lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+            if (trimmedLine) {
+                this.ctx.fillText(
+                    trimmedLine,
+                    this.canvas.width / 2,
+                    startY + (index * lineHeight)
+                );
+            }
+        });
+        
+        // // Force Hydra to update by reinitializing s3 with our canvas
+        // if (window.s3 && typeof window.s3.init === 'function') {
+        //     try {
+        //         window.s3.init({src: this.canvas});
+        //         console.log('Reinitialized Hydra source s3 with text canvas');
+        //     } catch (error) {
+        //         console.warn('Failed to reinitialize Hydra source s3:', error);
+        //     }
+        // }
+    }
+
     sendTextToPopup(text) {
         if (this.popupWindow && !this.popupWindow.closed) {
             this.popupWindow.postMessage({ 
@@ -101,6 +256,9 @@ export class TextController {
         } else {
             console.warn('Popup window is not available');
         }
+        
+        // Update canvas text
+        this.updateCanvasText(this.cleanHtmlText(text));
     }
 
     // Set a control function for a specific text state
@@ -468,7 +626,14 @@ export class TextController {
             this.disableAuthorMode();
         }
         
+        // Remove canvas
+        if (this.canvas && this.canvas.parentNode) {
+            this.canvas.parentNode.removeChild(this.canvas);
+        }
+        
         this.popupWindow = null;
+        this.canvas = null;
+        this.ctx = null;
         this.isInitialized = false;
     }
     
@@ -479,6 +644,16 @@ export class TextController {
             console.log('TextController: Scene reference updated');
         } else {
             console.warn('TextController: Attempted to update scene with null reference');
+        }
+    }
+
+    toggleTextColor() {
+        this.textColor = this.textColor === 'black' ? 'white' : 'black';
+        console.log('Text color toggled to:', this.textColor);
+        // Redraw current text with new color
+        const currentText = this.getCurrentText()?.text;
+        if (currentText) {
+            this.updateCanvasText(currentText);
         }
     }
 }

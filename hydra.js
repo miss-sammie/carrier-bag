@@ -3,6 +3,7 @@ import { Controls } from './controls.js';
 // Initialize Hydra
 let resolutionMode = "high"  
 let currentPatch = 1
+let textCanvasInitialized = false;
 
 function initHydra() {
     // Check for existing canvas
@@ -32,6 +33,16 @@ function initHydra() {
         height: hydraCanvas.height, 
         makeGlobal: true 
     });
+
+    // Initialize text canvas if enabled in config
+    // if (window.scene?.config?.textCanvas?.enabled && !textCanvasInitialized) {
+    //     s3.init({src: document.getElementById('text-canvas')});
+    //     textCanvasInitialized = true;
+    // }
+
+    
+
+
     return hydra;
 }
 
@@ -50,6 +61,7 @@ function resizeHydraPatch() {
 
 // Reload just the active source
 function reloadActiveSource(type) {
+    //s3.init({src: document.getElementById('text-canvas')});
     if (type === 'cam') {
         s0.clear()
         const cameraIndex = window.Devices.webcams[window.currentCam];
@@ -106,18 +118,28 @@ function reloadPatch(patch) {
     
     const patchCode = patches[patch];
     if (patchCode) {
-        // Create a context with necessary variables, with proper fallbacks
+        // Create a context that includes text canvas initialization in the same scope
         const context = `
+            // System variables
             const webcams = Array.isArray(window.webcams) ? window.webcams : [0];
             const currentCam = typeof window.currentCam === 'number' ? window.currentCam : 0;
             const Buffer = {
                 buffers: Array.isArray(window.Buffer) ? window.Buffer : []
             };
             const cc = Array.isArray(window.Devices?.cc) ? window.Devices.cc : Array(128).fill(0.5);
+
+            // Initialize text canvas in the same context as the patch
+            if (window.scene?.config?.textCanvas?.enabled) {
+                const textCanvas = document.getElementById('text-canvas');
+                if (textCanvas) {
+                    s3.init({src: textCanvas});
+                }
+            }
+
+            // Run the actual patch code
             ${patchCode}
         `;
         
-        // Convert the string patch into a function and execute it
         const patchFunction = new Function(`return () => {
             ${context}
         }`)();

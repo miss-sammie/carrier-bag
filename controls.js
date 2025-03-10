@@ -414,6 +414,15 @@ export class Controls {
         toggleConsole();
     }
 
+    static toggleTextColor() {
+        if (window.TextController) {
+            window.TextController.toggleTextColor();
+            this.log('Toggled text color');
+        } else {
+            this.warn('TextController not available');
+        }
+    }
+
     static no() {
         if(this.noEnabled) {
             setTimeout(toggleOverlay(), 3000);

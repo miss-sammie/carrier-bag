@@ -9,7 +9,7 @@ import { Sidebar } from './sidebar.js';
 import { TextController } from './textController.js';
 
 // Create a global TextController instance
-window.textController = new TextController();
+//window.textController = new TextController();
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', async () => {

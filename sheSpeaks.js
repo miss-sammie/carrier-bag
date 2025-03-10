@@ -39,6 +39,12 @@ export function initBabbler(mode = 'overlay') {
         case 'none':
             displayMode = 'none';
             break;
+        case 'source':
+            displayMode = 'overlay';
+            initializeTextOverlay('src');
+            const textOverlayElement = document.getElementById('textOverlayContainer');
+            window.textOverlayElement = textOverlayElement;
+            break;
     }
 
     // Load lexicon
@@ -231,15 +237,19 @@ function findWordsInText(text) {
 }
 
 // Add function to create and initialize the overlay container
-function initializeTextOverlay() {
+function initializeTextOverlay(position) {
     const overlayContainer = document.createElement('div');
     overlayContainer.id = 'textOverlayContainer';
+    
+    // Set z-index based on the position parameter
+    const zIndex = position === 'src' ? -1 : 1;
+    
     overlayContainer.style.cssText = `
         position: fixed;
         bottom: 0;
         left: 25vw;
         transform: translateX(-50%);
-        z-index: 1;
+        z-index: ${zIndex};
         pointer-events: none;
         color: white;
         font-family: monospace;

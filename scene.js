@@ -15,9 +15,12 @@ export class Scene {
             audioBuffers: config.audioBuffers || [2,3],
             collections: config.collections || {},
             folders: config.folders || null,
-            babblerEnabled: config.babblerEnabled ?? true,
+            babblerEnabled: config.babblerEnabled ?? false,
             hydraEnabled: config.hydraEnabled ?? true,
             sidebarVisible: config.sidebarVisible ?? false,
+            textCanvas: {
+                enabled: config.textCanvas?.enabled ?? true
+              },
             kioskMode: {
                 enabled: config.kioskMode?.enabled ?? false,
                 interval: config.kioskMode?.interval ?? 5000
@@ -109,10 +112,12 @@ export class Scene {
             // Initialize text overlay if enabled
             if (this.config.babblerEnabled) {
                 initBabbler('both');
+                
             }
 
             // Initialize devices if specified in config
             if (this.config.controls) {
+
                 console.log('Initializing devices with config:', this.config.controls);
                 await Devices.init(this.config.controls);
             }
