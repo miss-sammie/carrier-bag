@@ -815,6 +815,20 @@ export class Devices {
             // Camera control
             '(?:switch |change )?camera': () => Controls.switchCam(),
 
+            // Load file by name filter
+            'load file (.+)': (match) => {
+                const filter = match[1].trim();
+                this.log('Loading file with filter:', filter);
+                Controls.switchFileByType({ filename: filter });
+            },
+
+            // Save scene state command
+            'save (?:scene )?state(?: as)? (.+)': (match) => {
+                const stateName = match[1].trim();
+                this.log('Saving scene state as:', stateName);
+                window.currentScene.captureState(stateName);
+            },
+
             // Overlay and console commands
             '(show|hide|toggle)(?: the)? overlay': (match) => Controls.toggleOverlay(),
             '(show|hide|toggle)(?: the)? console': (match) => Controls.toggleConsole(),

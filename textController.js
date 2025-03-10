@@ -647,9 +647,13 @@ export class TextController {
         }
     }
 
-    toggleTextColor() {
-        this.textColor = this.textColor === 'black' ? 'white' : 'black';
-        console.log('Text color toggled to:', this.textColor);
+    toggleTextColor(color = null) {
+        if (color === 'black' || color === 'white') {
+            this.textColor = color;
+        } else {
+            this.textColor = this.textColor === 'black' ? 'white' : 'black';
+        }
+        console.log('Text color set to:', this.textColor);
         // Redraw current text with new color
         const currentText = this.getCurrentText()?.text;
         if (currentText) {

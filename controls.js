@@ -414,10 +414,10 @@ export class Controls {
         toggleConsole();
     }
 
-    static toggleTextColor() {
+    static toggleTextColor(color = null) {
         if (window.TextController) {
-            window.TextController.toggleTextColor();
-            this.log('Toggled text color');
+            window.TextController.toggleTextColor(color);
+            this.log('Text color updated');
         } else {
             this.warn('TextController not available');
         }

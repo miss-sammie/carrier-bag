@@ -1,0 +1,11 @@
+{
+    "ignore": [
+        "library/*",
+        "library/**/*"
+    ],
+    "watch": [
+        "periphone/",
+        "api/",
+        "public/"
+    ]
+} 

@@ -247,7 +247,6 @@ export class Scene {
                 }
             }
 
-            // Set media element properties
             if (buffer.element) {
                 if (typeof bufferState.currentTime === 'number') {
                     buffer.element.currentTime = bufferState.currentTime;
@@ -256,10 +255,16 @@ export class Scene {
                     buffer.element.playbackRate = bufferState.playbackRate;
                 }
                 buffer.element.muted = bufferState.muted;
-                if (!bufferState.paused) {
+                
+                // Explicitly handle both paused and playing states
+                if (bufferState.paused) {
+                    buffer.element.pause();
+                } else {
                     buffer.element.play().catch(console.error);
                 }
             }
+
+
         }));
 
         return state;
