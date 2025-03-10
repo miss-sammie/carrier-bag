@@ -25,6 +25,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 console.log("Directory setup complete");
 
+// Ensure all required directories exist
+const directories = [
+    join(__dirname, 'public'),
+    join(__dirname, 'public', 'library'),
+    join(__dirname, 'public', 'library', 'html'),
+    join(__dirname, 'public', 'library', 'media'),
+    join(__dirname, 'public', 'library', 'playlists'),
+    join(__dirname, 'public', 'library', 'scenes'),
+    join(__dirname, 'public', 'library', 'sequences'),
+    join(__dirname, 'public', 'library', 'uploads')
+];
+
+directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+    }
+});
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -97,13 +116,6 @@ const upload = multer({
         }
     }
 });
-
-// Make sure uploads directory exists
-const uploadsDir = join(__dirname, 'public', 'library', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('Created uploads directory:', uploadsDir);
-}
 
 // Routes
 app.get('/api/health', (req, res) => {
