@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.textController) {
             window.textController.updateScene(scene);
         }
+
+        window.load = async (sceneName) => {
+            const newScene = await Scene.load(sceneName);
+            await newScene.initialize();
+            window.scene = newScene;
+            window.currentScene = newScene;
+            return newScene;
+        };
         
         // Make playlist management globally available
         window.newPlaylist = (name) => scene.newPlaylist(name);

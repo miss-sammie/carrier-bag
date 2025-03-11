@@ -190,16 +190,23 @@ export class Scene {
             name: stateName,
             timestamp: Date.now(),
             currentPatch: window.currentPatch || 1,
-            bufferStates: this.buffers.map(buffer => ({
-                type: buffer.type,
-                focus: buffer.focus,
-                currentCollection: buffer.currentCollection?.name,
-                currentIndex: buffer.currentIndex,
-                currentTime: buffer.element?.currentTime || 0,
-                playbackRate: buffer.element?.playbackRate || 1,
-                muted: buffer.element?.muted || false,
-                paused: buffer.element?.paused || false
-            }))
+            bufferStates: this.buffers.map(buffer => {
+                // Get the current media URL directly
+                const mediaUrl = buffer.element?.src || null;
+                
+                return {
+                    type: buffer.type,
+                    focus: buffer.focus,
+                    currentCollection: buffer.currentCollection?.name,
+                    currentIndex: buffer.currentIndex,
+                    // Store the direct URL to the media file
+                    mediaUrl: mediaUrl,
+                    currentTime: buffer.element?.currentTime || 0,
+                    playbackRate: buffer.element?.playbackRate || 1,
+                    muted: buffer.element?.muted || false,
+                    paused: buffer.element?.paused || false
+                };
+            })
         };
 
         // Add state to savedStates array
@@ -218,6 +225,8 @@ export class Scene {
             throw new Error(`State "${stateNameOrIndex}" not found`);
         }
 
+        console.log(`Loading state: ${state.name}`);
+
         // Load patch
         if (state.currentPatch) {
             reloadPatch(state.currentPatch);
@@ -228,9 +237,16 @@ export class Scene {
             const buffer = this.buffers[index];
             if (!buffer) return;
 
+            console.log(`Processing buffer ${index} (${buffer.type})`);
+
             // Set collection if specified
             if (bufferState.currentCollection) {
-                await buffer.setCollection(bufferState.currentCollection);
+                try {
+                    await buffer.setCollection(bufferState.currentCollection);
+                } catch (error) {
+                    console.warn(`Could not set collection "${bufferState.currentCollection}" for buffer ${index}: ${error.message}`);
+                    // Continue with loading - we'll try to load by URL directly
+                }
             }
 
             // Set focus
@@ -238,15 +254,45 @@ export class Scene {
                 Controls.focus(index);
             }
 
-            // Set current index/media if in a collection
-            if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
-                buffer.currentIndex = bufferState.currentIndex;
-                const media = buffer.currentCollection.items[bufferState.currentIndex];
-                if (media) {
-                    await buffer.loadMedia(media.url);
+            // Load media - prioritize direct URL over collection index
+            if (bufferState.mediaUrl) {
+                try {
+                    // Attempt to load media directly by URL
+                    console.log(`Loading buffer ${index} directly by URL: ${bufferState.mediaUrl}`);
+                    await buffer.loadMedia(bufferState.mediaUrl);
+                } catch (error) {
+                    console.warn(`Failed to load media by URL for buffer ${index}: ${error.message}`);
+                    
+                    // Fall back to collection index method if URL load fails
+                    if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
+                        try {
+                            buffer.currentIndex = bufferState.currentIndex;
+                            const media = buffer.currentCollection.items[bufferState.currentIndex];
+                            if (media) {
+                                console.log(`Falling back to collection index method for buffer ${index}`);
+                                await buffer.loadMedia(media.url);
+                            }
+                        } catch (fallbackError) {
+                            console.error(`Fallback loading also failed for buffer ${index}: ${fallbackError.message}`);
+                        }
+                    }
+                }
+            } 
+            // If no direct URL, try collection index method
+            else if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
+                try {
+                    buffer.currentIndex = bufferState.currentIndex;
+                    const media = buffer.currentCollection.items[bufferState.currentIndex];
+                    if (media) {
+                        console.log(`Loading buffer ${index} by collection index: ${bufferState.currentIndex}`);
+                        await buffer.loadMedia(media.url);
+                    }
+                } catch (error) {
+                    console.error(`Failed to load media by collection index for buffer ${index}: ${error.message}`);
                 }
             }
 
+            // Configure media playback properties
             if (buffer.element) {
                 if (typeof bufferState.currentTime === 'number') {
                     buffer.element.currentTime = bufferState.currentTime;
@@ -263,10 +309,9 @@ export class Scene {
                     buffer.element.play().catch(console.error);
                 }
             }
-
-
         }));
 
+        console.log(`State "${state.name}" loaded successfully`);
         return state;
     }
 

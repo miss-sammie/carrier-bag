@@ -344,11 +344,15 @@ export class TextController {
         // First, load the associated state if any
         if (textState.state && this.currentScene) {
             try {
+                console.log(`Attempting to load state "${textState.state}" for text state ${index}`);
                 await this.currentScene.loadState(textState.state);
-                console.log(`Loaded state "${textState.state}" for text state ${index}`);
+                console.log(`Successfully loaded state "${textState.state}" for text state ${index}`);
             } catch (error) {
-                console.error(`Error loading state "${textState.state}":`, error);
+                console.error(`Error loading state "${textState.state}" for text ${index}:`, error);
+                console.warn('Make sure the state exists in the scene and is properly saved');
             }
+        } else if (textState.state) {
+            console.warn(`State "${textState.state}" specified for text ${index}, but no scene is available to load it`);
         }
         
         // In author mode, log the state but still execute functions
@@ -603,6 +607,16 @@ export class TextController {
             this.currentIndex = 0;
             
             console.log(`Loaded text sequence "${name}" with ${this.textStates.length} states`);
+            
+            // Make sure we have a current scene reference
+            if (!this.currentScene && window.scene) {
+                this.currentScene = window.scene;
+                console.log('Set current scene reference for state loading');
+            }
+            
+            if (!this.currentScene) {
+                console.warn('No scene available. States will not be loaded with text.');
+            }
             
             // Go to the first text state
             if (this.textStates.length > 0) {

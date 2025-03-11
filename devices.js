@@ -53,9 +53,12 @@ export class Devices {
         '2,2': () => Controls.switchPatch('random'),
 
         // Chill mode
-        '7,15': () => Devices.toggleChillMode(),
-        '7,14': () => Controls.switchCam(),
-        '7,13': () => Controls.refreshLibrary()
+        //'7,15': () => Devices.toggleChillMode(),
+        '7,15': () => textController.next(),
+        '7,14': () => textController.previous(),
+        '7,13': () => Controls.toggleTextColor(),
+      //  '7,14': () => Controls.switchCam(),
+        //'7,13': () => Controls.refreshLibrary()
     };
 
     // Add logging methods
@@ -186,7 +189,8 @@ export class Devices {
             'Backspace': () => Controls.toggleMute(),
             'KeyG': () => Controls.refreshRemoteLibrary(),
             // Add a key to toggle debug mode
-            'F1': () => this.toggleDebug()
+            'F1': () => this.toggleDebug(),
+            'Digit6': () => next()
         };
 
         Object.entries(keyMapping).forEach(([key, handler]) => {
@@ -845,6 +849,7 @@ export class Devices {
             this.log('Voice command received:', command);
             this.poem(command);
 
+
             
             // Split commands by 'and' or 'then'
             const commands = command.split(/\s+(?:and|then)\s+/);
@@ -898,6 +903,7 @@ export class Devices {
         }
     }
 
+    
     static toggleChillMode() {
         this.CHILL_MODE = !this.CHILL_MODE;
         this.log(`Chill mode ${this.CHILL_MODE ? 'enabled' : 'disabled'}`);
