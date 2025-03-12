@@ -308,6 +308,17 @@ export class Controls {
         return remoteItems;
     }
 
+    static setVolume(volume) {
+        const element = this.focusedBuffer?.element;
+        if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {
+            this.warn('Cannot set volume: invalid element');
+            return;
+        }
+
+        element.volume = volume;
+        this.log(`Volume set to ${volume}`);
+    }
+
     static togglePlay() {
         const element = this.focusedBuffer?.element;
         if (!element || !['VIDEO', 'AUDIO'].includes(element.tagName)) {

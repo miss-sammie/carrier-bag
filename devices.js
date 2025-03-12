@@ -57,7 +57,8 @@ export class Devices {
         '7,15': () => textController.next(),
         '7,14': () => textController.previous(),
         '7,13': () => Controls.toggleTextColor(),
-      //  '7,14': () => Controls.switchCam(),
+        '7,12': () => Controls.togglePlay(),
+        '7,11': () => Controls.switchCam(),
         //'7,13': () => Controls.refreshLibrary()
     };
 
@@ -364,6 +365,9 @@ export class Devices {
                     });
                     break;
                 }
+                case 6:
+                    Controls.setVolume(this.cc[note]);
+                    break;
             }
         }
         

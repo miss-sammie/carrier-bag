@@ -416,12 +416,12 @@ export class TextController {
             console.log('%cState:%c None', 'font-weight: bold;', 'font-weight: normal; color: #9E9E9E;');
         }
         
-        console.log('%cAvailable Commands:', 'font-weight: bold; color: #673AB7;');
-        console.log('  TextController.setFunction("functionName", arg1, arg2, ...)');
-        console.log('  TextController.saveState("optionalStateName")');
-        console.log('  TextController.next()');
-        console.log('  TextController.previous()');
-        console.log('  TextController.saveSequence("sequenceName")');
+        // console.log('%cAvailable Commands:', 'font-weight: bold; color: #673AB7;');
+        // console.log('  TextController.setFunction("functionName", arg1, arg2, ...)');
+        // console.log('  TextController.saveState("optionalStateName")');
+        // console.log('  TextController.next()');
+        // console.log('  TextController.previous()');
+        // console.log('  TextController.saveSequence("sequenceName")');
     }
 
     // Enable author mode with global functions
