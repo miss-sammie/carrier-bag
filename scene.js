@@ -227,85 +227,118 @@ export class Scene {
 
         console.log(`Loading state: ${state.name}`);
 
-        // Load patch
-        if (state.currentPatch) {
+        // Capture current state to compare with target state
+        const currentState = this.captureCurrentState();
+        
+        // Only reload patch if it's different
+        if (state.currentPatch && state.currentPatch !== currentState.currentPatch) {
+            console.log(`Changing patch from ${currentState.currentPatch} to ${state.currentPatch}`);
             reloadPatch(state.currentPatch);
         }
 
         // Load buffer states
-        await Promise.all(state.bufferStates.map(async (bufferState, index) => {
+        await Promise.all(state.bufferStates.map(async (targetBufferState, index) => {
             const buffer = this.buffers[index];
             if (!buffer) return;
-
+            
+            const currentBufferState = currentState.bufferStates[index];
             console.log(`Processing buffer ${index} (${buffer.type})`);
 
-            // Set collection if specified
-            if (bufferState.currentCollection) {
+            // Check if we need to change collection
+            const collectionChanged = targetBufferState.currentCollection !== currentBufferState.currentCollection;
+            if (collectionChanged && targetBufferState.currentCollection) {
                 try {
-                    await buffer.setCollection(bufferState.currentCollection);
+                    console.log(`Changing collection for buffer ${index} from "${currentBufferState.currentCollection}" to "${targetBufferState.currentCollection}"`);
+                    await buffer.setCollection(targetBufferState.currentCollection);
                 } catch (error) {
-                    console.warn(`Could not set collection "${bufferState.currentCollection}" for buffer ${index}: ${error.message}`);
+                    console.warn(`Could not set collection "${targetBufferState.currentCollection}" for buffer ${index}: ${error.message}`);
                     // Continue with loading - we'll try to load by URL directly
                 }
             }
 
-            // Set focus
-            if (bufferState.focus) {
+            // Set focus only if it's changing
+            if (targetBufferState.focus && !currentBufferState.focus) {
+                console.log(`Setting focus to buffer ${index}`);
                 Controls.focus(index);
             }
 
-            // Load media - prioritize direct URL over collection index
-            if (bufferState.mediaUrl) {
-                try {
-                    // Attempt to load media directly by URL
-                    console.log(`Loading buffer ${index} directly by URL: ${bufferState.mediaUrl}`);
-                    await buffer.loadMedia(bufferState.mediaUrl);
-                } catch (error) {
-                    console.warn(`Failed to load media by URL for buffer ${index}: ${error.message}`);
-                    
-                    // Fall back to collection index method if URL load fails
-                    if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
-                        try {
-                            buffer.currentIndex = bufferState.currentIndex;
-                            const media = buffer.currentCollection.items[bufferState.currentIndex];
-                            if (media) {
-                                console.log(`Falling back to collection index method for buffer ${index}`);
-                                await buffer.loadMedia(media.url);
+            // Check if we need to load new media
+            const mediaUrlChanged = targetBufferState.mediaUrl !== currentBufferState.mediaUrl;
+            const indexChanged = targetBufferState.currentIndex !== currentBufferState.currentIndex;
+            
+            // Only load media if URL or index changed
+            if (mediaUrlChanged || (indexChanged && !targetBufferState.mediaUrl)) {
+                // Load media - prioritize direct URL over collection index
+                if (targetBufferState.mediaUrl) {
+                    try {
+                        // Attempt to load media directly by URL
+                        console.log(`Loading buffer ${index} directly by URL: ${targetBufferState.mediaUrl}`);
+                        await buffer.loadMedia(targetBufferState.mediaUrl);
+                    } catch (error) {
+                        console.warn(`Failed to load media by URL for buffer ${index}: ${error.message}`);
+                        
+                        // Fall back to collection index method if URL load fails
+                        if (buffer.currentCollection && typeof targetBufferState.currentIndex === 'number') {
+                            try {
+                                buffer.currentIndex = targetBufferState.currentIndex;
+                                const media = buffer.currentCollection.items[targetBufferState.currentIndex];
+                                if (media) {
+                                    console.log(`Falling back to collection index method for buffer ${index}`);
+                                    await buffer.loadMedia(media.url);
+                                }
+                            } catch (fallbackError) {
+                                console.error(`Fallback loading also failed for buffer ${index}: ${fallbackError.message}`);
                             }
-                        } catch (fallbackError) {
-                            console.error(`Fallback loading also failed for buffer ${index}: ${fallbackError.message}`);
                         }
                     }
-                }
-            } 
-            // If no direct URL, try collection index method
-            else if (buffer.currentCollection && typeof bufferState.currentIndex === 'number') {
-                try {
-                    buffer.currentIndex = bufferState.currentIndex;
-                    const media = buffer.currentCollection.items[bufferState.currentIndex];
-                    if (media) {
-                        console.log(`Loading buffer ${index} by collection index: ${bufferState.currentIndex}`);
-                        await buffer.loadMedia(media.url);
+                } 
+                // If no direct URL, try collection index method
+                else if (buffer.currentCollection && typeof targetBufferState.currentIndex === 'number' && indexChanged) {
+                    try {
+                        console.log(`Changing index for buffer ${index} from ${currentBufferState.currentIndex} to ${targetBufferState.currentIndex}`);
+                        buffer.currentIndex = targetBufferState.currentIndex;
+                        const media = buffer.currentCollection.items[targetBufferState.currentIndex];
+                        if (media) {
+                            console.log(`Loading buffer ${index} by collection index: ${targetBufferState.currentIndex}`);
+                            await buffer.loadMedia(media.url);
+                        }
+                    } catch (error) {
+                        console.error(`Failed to load media by collection index for buffer ${index}: ${error.message}`);
                     }
-                } catch (error) {
-                    console.error(`Failed to load media by collection index for buffer ${index}: ${error.message}`);
                 }
             }
 
-            // Configure media playback properties
+            // Configure media playback properties - only if they've changed
             if (buffer.element) {
-                if (typeof bufferState.currentTime === 'number') {
-                    buffer.element.currentTime = bufferState.currentTime;
+                // Only set currentTime if it's significantly different (more than 0.5 seconds)
+                if (typeof targetBufferState.currentTime === 'number' && 
+                    Math.abs(targetBufferState.currentTime - buffer.element.currentTime) > 0.5) {
+                    console.log(`Changing currentTime for buffer ${index} from ${buffer.element.currentTime} to ${targetBufferState.currentTime}`);
+                    buffer.element.currentTime = targetBufferState.currentTime;
                 }
-                if (typeof bufferState.playbackRate === 'number') {
-                    buffer.element.playbackRate = bufferState.playbackRate;
-                }
-                buffer.element.muted = bufferState.muted;
                 
-                // Explicitly handle both paused and playing states
-                if (bufferState.paused) {
+                // Only change playback rate if different
+                if (typeof targetBufferState.playbackRate === 'number' && 
+                    targetBufferState.playbackRate !== buffer.element.playbackRate) {
+                    console.log(`Changing playbackRate for buffer ${index} from ${buffer.element.playbackRate} to ${targetBufferState.playbackRate}`);
+                    buffer.element.playbackRate = targetBufferState.playbackRate;
+                }
+                
+                // Only change muted state if different
+                if (targetBufferState.muted !== buffer.element.muted) {
+                    console.log(`Changing muted state for buffer ${index} from ${buffer.element.muted} to ${targetBufferState.muted}`);
+                    buffer.element.muted = targetBufferState.muted;
+                }
+                
+                // Only change play/pause state if different
+                const shouldBePaused = targetBufferState.paused;
+                const isPaused = buffer.element.paused;
+                
+                if (shouldBePaused && !isPaused) {
+                    console.log(`Pausing buffer ${index}`);
                     buffer.element.pause();
-                } else {
+                } else if (!shouldBePaused && isPaused) {
+                    console.log(`Playing buffer ${index}`);
                     buffer.element.play().catch(console.error);
                 }
             }
@@ -313,6 +346,28 @@ export class Scene {
 
         console.log(`State "${state.name}" loaded successfully`);
         return state;
+    }
+
+    // Helper method to capture the current state without saving it
+    captureCurrentState() {
+        return {
+            currentPatch: window.currentPatch || 1,
+            bufferStates: this.buffers.map(buffer => {
+                const mediaUrl = buffer.element?.src || null;
+                
+                return {
+                    type: buffer.type,
+                    focus: buffer.focus,
+                    currentCollection: buffer.currentCollection?.name,
+                    currentIndex: buffer.currentIndex,
+                    mediaUrl: mediaUrl,
+                    currentTime: buffer.element?.currentTime || 0,
+                    playbackRate: buffer.element?.playbackRate || 1,
+                    muted: buffer.element?.muted || false,
+                    paused: buffer.element?.paused || false
+                };
+            })
+        };
     }
 
     listStates() {
