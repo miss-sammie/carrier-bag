@@ -24,6 +24,8 @@ export class Devices {
     static CHILL_MODE = false;
     static CHILL_DELAY = 2000; // 2 seconds for chill mode
     static kioskInterval = null;
+    static textAutoIntervalEnabled = false;
+    static textAutoIntervalTime = 5000; // Default 5 seconds
 
     // Define grid mapping as a static property
     static gridMapping = {
@@ -191,7 +193,8 @@ export class Devices {
             'KeyG': () => Controls.refreshRemoteLibrary(),
             // Add a key to toggle debug mode
             'F1': () => this.toggleDebug(),
-            'Digit6': () => next()
+            'Digit6': () => next(),
+            'KeyN': () => this.toggleTextAutoInterval(), // Add keyboard shortcut for toggling auto-interval
         };
 
         Object.entries(keyMapping).forEach(([key, handler]) => {
@@ -259,6 +262,10 @@ export class Devices {
         try {
             this.midiAccess = await navigator.requestMIDIAccess();
             this.midiEnabled = true;
+
+            // Initialize text auto-interval properties
+            this.textAutoIntervalEnabled = false;
+            this.textAutoIntervalTime = 5000; // Default 5 seconds
 
             const inputs = Array.from(this.midiAccess.inputs.values());
             inputs.forEach(input => {
@@ -368,6 +375,16 @@ export class Devices {
                 case 6:
                     Controls.setVolume(this.cc[note]);
                     break;
+                case 11: // Use CC #43 for text interval timing
+                    // Map CC value to interval between 3000ms (3s) and 15000ms (15s)
+                    this.textAutoIntervalTime = 2000 + (this.cc[note] * 10000);
+                    this.log(`Text auto-interval time set to ${this.textAutoIntervalTime}ms`);
+                    
+                    // If auto-interval is enabled, update it with the new time
+                    if (this.textAutoIntervalEnabled) {
+                        Controls.createAutoInterval('text', () => textController.next(), this.textAutoIntervalTime);
+                    }
+                    break;
             }
         }
         
@@ -407,8 +424,9 @@ export class Devices {
                 69: () => Controls.switchPatch('next'),
                 70: () => Controls.speedShift('slower'),
                 71: () => Controls.speedShift('faster'),
-                72: () => Controls.speedShift('normal'),
+              //  72: () => Controls.speedShift('normal'),
                 1: () => Controls.focus(),
+                72: () => this.toggleTextAutoInterval(), // Use note 73 to toggle text auto-interval
             }[note];
 
             if (handler) {
@@ -958,6 +976,23 @@ export class Devices {
         } catch (error) {
             this.error('Error initializing text controls:', error);
         }
+    }
+
+    // Add a new method to toggle text auto-interval
+    static toggleTextAutoInterval() {
+        this.textAutoIntervalEnabled = !this.textAutoIntervalEnabled;
+        
+        if (this.textAutoIntervalEnabled) {
+            // Start the auto-interval with the current time setting
+            Controls.createAutoInterval('text', () => textController.next(), this.textAutoIntervalTime);
+            this.log(`Text auto-interval started with interval: ${this.textAutoIntervalTime}ms`);
+        } else {
+            // Stop the auto-interval
+            Controls.clearAutoInterval('text');
+            this.log('Text auto-interval stopped');
+        }
+        
+        return this.textAutoIntervalEnabled;
     }
 }
 

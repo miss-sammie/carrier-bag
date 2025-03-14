@@ -80,6 +80,28 @@ class Buffer {
     }
 
     async loadMedia(url) {
+        // Try to find media by URL first
+        const mediaItem = mediaLibrary.find(item => item.url === url);
+        
+        if (!mediaItem) {
+            console.warn(`Media not found in library by URL: ${url}`);
+            
+            // Try to find by filename as fallback
+            const filename = url.split('/').pop();
+            const mediaByFilename = mediaLibrary.find(item => 
+                item.url.split('/').pop() === filename
+            );
+            
+            if (mediaByFilename) {
+                console.log(`Found media by filename instead: ${mediaByFilename.url}`);
+                url = mediaByFilename.url;
+            } else {
+                // Try collection index fallback
+                console.log("Falling back to collection index method");
+                // Your existing fallback code
+            }
+        }
+        
         // Find media object in the current collection
         let mediaObj = null;
         
