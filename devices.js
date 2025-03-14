@@ -377,7 +377,7 @@ export class Devices {
                     break;
                 case 11: // Use CC #43 for text interval timing
                     // Map CC value to interval between 3000ms (3s) and 15000ms (15s)
-                    this.textAutoIntervalTime = 2000 + (this.cc[note] * 10000);
+                    this.textAutoIntervalTime = 1500 + (this.cc[note] * 10000);
                     this.log(`Text auto-interval time set to ${this.textAutoIntervalTime}ms`);
                     
                     // If auto-interval is enabled, update it with the new time
