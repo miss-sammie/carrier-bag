@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.loadStateFromPlaylist = (playlist, nameOrIndex) => scene.loadStateFromPlaylist(playlist, nameOrIndex);
         window.listPlaylists = () => scene.listPlaylists();
         
+        
     } catch (error) {
         console.error("Error in main:", error);
     }

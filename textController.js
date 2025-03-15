@@ -34,6 +34,7 @@ export class TextController {
         
         this.isInitialized = true;
         
+        
         console.log('TextController initialized with', this.textStates.length, 'text states');
     }
 
@@ -249,15 +250,23 @@ export class TextController {
 
     sendTextToPopup(text) {
         if (this.popupWindow && !this.popupWindow.closed) {
+            // Get the next text if available
+            let nextText = '';
+            const nextIndex = (this.currentIndex + 1) % this.textStates.length;
+            if (nextIndex !== this.currentIndex && this.textStates[nextIndex]) {
+                nextText = this.cleanHtmlText(this.textStates[nextIndex].text);
+            }
+            
             this.popupWindow.postMessage({ 
                 action: 'updateText', 
-                text: this.cleanHtmlText(text)
+                currentText: this.cleanHtmlText(text),
+                nextText: nextText
             }, window.location.origin);
         } else {
             console.warn('Popup window is not available');
         }
         
-        // Update canvas text
+        // Update canvas text (only with current text)
         this.updateCanvasText(this.cleanHtmlText(text));
     }
 
